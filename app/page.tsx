@@ -153,10 +153,13 @@ export default function HotelChooserAllPrograms() {
     }
   };
 
-  const normalizeRules = (rules: Rule[]) =>
-    rules.map((rule) =>
+  const normalizeRules = (rules: Rule[]): Rule[] =>
+    rules.map((rule): Rule =>
       rule.trigger.type === "milestone"
-        ? { ...rule, trigger: { ...rule.trigger, metric: "nights" } }
+        ? {
+            ...rule,
+            trigger: { ...rule.trigger, metric: "nights" as const },
+          }
         : rule
     );
 
