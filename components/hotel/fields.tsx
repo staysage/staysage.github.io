@@ -123,7 +123,7 @@ export function SelectField({
   options,
   placeholder,
 }: {
-  label: string;
+  label: React.ReactNode;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
