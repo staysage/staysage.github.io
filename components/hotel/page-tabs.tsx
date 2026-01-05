@@ -17,7 +17,7 @@ export function PageTabs({
     id,
     label,
   }: {
-    id: "global" | "brands" | "hotels";
+    id: "travel" | "brands";
     label: string;
   }) => (
     <Button
