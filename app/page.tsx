@@ -768,9 +768,9 @@ export default function HotelChooserAllPrograms() {
     const namedRule = trimmedName
       ? { ...ruleDraftState, name: trimmedName }
       : { ...ruleDraftState, name: autoRuleName(ruleDraftState) };
-    const normalizedRule =
+    const normalizedRule: Rule =
       namedRule.trigger.type === "milestone"
-        ? { ...namedRule, trigger: { ...namedRule.trigger, metric: "nights" } }
+        ? { ...namedRule, trigger: { ...namedRule.trigger, metric: "nights" as const } }
         : namedRule;
 
     if (ruleContext.scope === "brand") {
