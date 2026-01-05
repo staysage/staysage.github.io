@@ -1992,10 +1992,7 @@ export default function HotelChooserAllPrograms() {
                         key={`brand-rule-${brandRulePickerKey}`}
                         onValueChange={(v) => {
                           if (!v) return;
-                          openRuleEditor(
-                            "brand",
-                            v as "per_night" | "per_stay" | "milestone" | "spend"
-                          );
+                          openRuleEditor("brand", v as any);
                           setBrandRulePickerKey((k) => k + 1);
                         }}
                     >
@@ -2600,10 +2597,7 @@ export default function HotelChooserAllPrograms() {
                                 key={`hotel-rule-${hotelRulePickerKey}`}
                                 onValueChange={(v) => {
                                   if (!v) return;
-                                  openRuleEditor(
-                                    "hotel",
-                                    v as "per_night" | "per_stay" | "milestone" | "spend"
-                                  );
+                                  openRuleEditor("hotel", v as any);
                                   setHotelRulePickerKey((k) => k + 1);
                                 }}
                             >
