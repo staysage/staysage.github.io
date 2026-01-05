@@ -1,6 +1,7 @@
 "use client";
 
 import type React from "react";
+import { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -27,6 +28,16 @@ export function NumberField({
   suffix?: string;
   inputClassName?: string;
 }) {
+  const [display, setDisplay] = useState(
+    Number.isFinite(value) ? String(value) : ""
+  );
+  const editingRef = useRef(false);
+
+  useEffect(() => {
+    if (editingRef.current) return;
+    setDisplay(Number.isFinite(value) ? String(value) : "");
+  }, [value]);
+
   return (
     <div className="space-y-1">
       <Label className="text-sm text-muted-foreground">{label}</Label>
@@ -34,9 +45,25 @@ export function NumberField({
         <Input
           type="number"
           step={step}
+          inputMode="decimal"
           className={inputClassName ?? "w-full max-w-[200px]"}
-          value={Number.isFinite(value) ? value : 0}
-          onChange={(e) => onChange(clampNum(e.target.value, 0))}
+          value={display}
+          onFocus={() => {
+            editingRef.current = true;
+          }}
+          onBlur={() => {
+            editingRef.current = false;
+            const next =
+              display.trim() === "" ? 0 : clampNum(display, 0);
+            onChange(next);
+            setDisplay(String(next));
+          }}
+          onChange={(e) => {
+            const next = e.target.value;
+            setDisplay(next);
+            if (next.trim() === "") return;
+            onChange(clampNum(next, 0));
+          }}
         />
         {suffix ? (
           <span className="text-sm text-muted-foreground whitespace-nowrap">
@@ -89,6 +116,16 @@ export function MoneyField({
   onCurrencyChange: (v: string) => void;
   currencyOptions: { value: string; label: string }[];
 }) {
+  const [display, setDisplay] = useState(
+    Number.isFinite(amount) ? String(amount) : ""
+  );
+  const editingRef = useRef(false);
+
+  useEffect(() => {
+    if (editingRef.current) return;
+    setDisplay(Number.isFinite(amount) ? String(amount) : "");
+  }, [amount]);
+
   return (
     <div className="space-y-1">
       <Label className="text-sm text-muted-foreground">{label}</Label>
@@ -96,8 +133,24 @@ export function MoneyField({
         <Input
           type="number"
           className="w-24 md:w-28"
-          value={Number.isFinite(amount) ? amount : 0}
-          onChange={(e) => onAmountChange(clampNum(e.target.value, 0))}
+          inputMode="decimal"
+          value={display}
+          onFocus={() => {
+            editingRef.current = true;
+          }}
+          onBlur={() => {
+            editingRef.current = false;
+            const next =
+              display.trim() === "" ? 0 : clampNum(display, 0);
+            onAmountChange(next);
+            setDisplay(String(next));
+          }}
+          onChange={(e) => {
+            const next = e.target.value;
+            setDisplay(next);
+            if (next.trim() === "") return;
+            onAmountChange(clampNum(next, 0));
+          }}
         />
         <Select value={currency} onValueChange={onCurrencyChange}>
           <SelectTrigger className="h-9 w-[90px]">
