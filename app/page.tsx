@@ -718,7 +718,7 @@ export default function HotelChooserAllPrograms() {
 
   const openRuleEditor = (
     scope: "brand" | "hotel",
-    triggerType?: "per_night" | "per_stay" | "milestone",
+    triggerType?: "per_night" | "per_stay" | "milestone" | "spend",
     ruleId?: string
   ) => {
     if (scope === "brand") {
