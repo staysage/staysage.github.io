@@ -1,3 +1,4 @@
+import { createTranslator, languageLocale } from "@/lib/i18n";
 import type { Language, Rule, SupportedCurrency } from "./types";
 
 export function clampNum(v: unknown, fallback: number) {
@@ -5,30 +6,35 @@ export function clampNum(v: unknown, fallback: number) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-export function fmtMoney(n: number, currency: SupportedCurrency) {
-  return new Intl.NumberFormat("zh-CN", {
+export function fmtMoney(
+  n: number,
+  currency: SupportedCurrency,
+  language: Language = "zh"
+) {
+  return new Intl.NumberFormat(languageLocale(language), {
     style: "currency",
     currency,
     maximumFractionDigits: 2,
   }).format(n);
 }
 
-export function fmtInt(n: number) {
-  return new Intl.NumberFormat("zh-CN", {
+export function fmtInt(n: number, language: Language = "zh") {
+  return new Intl.NumberFormat(languageLocale(language), {
     maximumFractionDigits: 0,
   }).format(n);
 }
 
-export function fmtPct(n: number) {
-  return new Intl.NumberFormat("zh-CN", {
+export function fmtPct(n: number, language: Language = "zh") {
+  return new Intl.NumberFormat(languageLocale(language), {
     style: "percent",
     maximumFractionDigits: 2,
   }).format(n);
 }
 
 export function zhe(netRatio: number, language: Language = "zh") {
+  const t = createTranslator(language);
   const z = netRatio * 10;
-  return language === "en" ? `${z.toFixed(2)}x` : `${z.toFixed(2)} 折`;
+  return t("format.discount", { value: z.toFixed(2) });
 }
 
 export function ruleSummary(
@@ -36,38 +42,29 @@ export function ruleSummary(
   currency: SupportedCurrency,
   language: Language = "zh"
 ) {
-  const t = rule.trigger;
-  const r = rule.reward;
+  const t = createTranslator(language);
+  const trigger = rule.trigger;
+  const reward = rule.reward;
 
   const trig =
-    t.type === "per_night"
-      ? language === "en"
-        ? "Per night"
-        : "每晚"
-      : t.type === "per_stay"
-        ? language === "en"
-          ? "Per stay"
-          : "每次入住"
-        : t.type === "spend"
-          ? language === "en"
-            ? `Spend ≥ ${t.amount} ${currency}${t.repeat ? " (each threshold)" : ""}`
-            : `消费≥${t.amount} ${currency}${t.repeat ? "（每满一次）" : ""}`
-          : language === "en"
-            ? `At ${t.threshold} nights`
-            : `满${t.threshold}晚`;
+    trigger.type === "per_night"
+      ? t("ruleSummary.perNight")
+      : trigger.type === "per_stay"
+        ? t("ruleSummary.perStay")
+        : trigger.type === "spend"
+          ? t("ruleSummary.spend", {
+              amount: trigger.amount,
+              currency,
+              repeat: trigger.repeat ? t("ruleSummary.spend.repeat") : "",
+            })
+          : t("ruleSummary.milestone", { threshold: trigger.threshold });
 
   const rew =
-    r.type === "points"
-      ? language === "en"
-        ? `+${r.points} pts`
-        : `+${r.points} 点`
-      : r.type === "multiplier"
-        ? language === "en"
-          ? `Base ×${r.z}`
-          : `基础×${r.z}`
-        : language === "en"
-          ? `+${r.count} FN`
-          : `+${r.count} FN（免费房晚）`;
+    reward.type === "points"
+      ? t("ruleSummary.reward.points", { points: reward.points })
+      : reward.type === "multiplier"
+        ? t("ruleSummary.reward.multiplier", { multiplier: reward.z })
+        : t("ruleSummary.reward.fn", { count: reward.count });
 
   return `${trig} → ${rew}`;
 }

@@ -1,6 +1,6 @@
 export type SupportedCurrency = "USD" | "CNY" | "HKD" | "GBP" | "EUR" | "SGD";
 
-export type Language = "zh" | "en";
+export type Language = "zh" | "en" | "es" | "ko" | "ja" | "zh-TW";
 
 export type Money = {
   amount: number;
@@ -20,11 +20,11 @@ export type FxRates = {
 };
 
 export type GlobalSettings = {
-  preferredCurrency: SupportedCurrency;
+  preferredCurrency: SupportedCurrency | null;
   // Night count is used globally but shown only on Hotels page top
   nights: number;
   countryId: string;
-  taxInputMode: "PRE_TAX_PLUS_RATE" | "POST_TAX_PLUS_RATE" | "PRE_AND_POST";
+  taxInputMode: "PRE_TAX_PLUS_RATE" | "POST_TAX_PLUS_RATE" | "PRE_AND_POST" | null;
   taxRate: number;
 };
 
@@ -47,13 +47,26 @@ export type Rule = {
   reward: Reward;
 };
 
-export type BrandTier = { id: string; label: string; ratePerUsd: number };
+export type BrandTier = {
+  id: string;
+  label: string;
+  ratePerUsd: number;
+  i18nKey?: string;
+  i18nAuto?: boolean;
+};
 
-export type EliteTier = { id: string; label: string; bonusRate: number };
+export type EliteTier = {
+  id: string;
+  label: string;
+  bonusRate: number;
+  i18nKey?: string;
+  i18nAuto?: boolean;
+};
 
 export type ProgramSettings = {
   eliteTierId: string;
-  pointValue: Money; // currency per point
+  pointValue: Money; // currency per 10k points
+  fnVoucherEnabled: boolean;
   fnValueMode: "CASH" | "POINTS";
   fnValueCash: Money; // if CASH => currency
   fnValuePoints: number; // if POINTS => points
@@ -64,6 +77,9 @@ export type ProgramSettings = {
 export type Program = {
   id: string;
   name: string;
+  nameI18nKey?: string;
+  nameI18nAuto?: boolean;
+  presetId?: string;
   logoUrl?: string;
   brandColor?: string;
   currency: SupportedCurrency;

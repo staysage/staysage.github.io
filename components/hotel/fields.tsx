@@ -20,6 +20,7 @@ export function NumberField({
   step = 1,
   suffix,
   inputClassName,
+  disabled = false,
 }: {
   label: React.ReactNode;
   value: number;
@@ -27,6 +28,7 @@ export function NumberField({
   step?: number;
   suffix?: string;
   inputClassName?: string;
+  disabled?: boolean;
 }) {
   const [display, setDisplay] = useState(
     Number.isFinite(value) ? String(value) : ""
@@ -46,6 +48,7 @@ export function NumberField({
           type="number"
           step={step}
           inputMode="decimal"
+          disabled={disabled}
           className={inputClassName ?? "w-full max-w-[200px]"}
           value={display}
           onFocus={() => {
@@ -53,12 +56,14 @@ export function NumberField({
           }}
           onBlur={() => {
             editingRef.current = false;
+            if (disabled) return;
             const next =
               display.trim() === "" ? 0 : clampNum(display, 0);
             onChange(next);
             setDisplay(String(next));
           }}
           onChange={(e) => {
+            if (disabled) return;
             const next = e.target.value;
             setDisplay(next);
             if (next.trim() === "") return;
@@ -81,12 +86,14 @@ export function TextField({
   onChange,
   placeholder,
   onFocus,
+  inputClassName,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   onFocus?: () => void;
+  inputClassName?: string;
 }) {
   return (
     <div className="space-y-1">
@@ -94,6 +101,7 @@ export function TextField({
       <Input
         value={value}
         placeholder={placeholder}
+        className={inputClassName}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
       />
@@ -108,6 +116,7 @@ export function MoneyField({
   onAmountChange,
   onCurrencyChange,
   currencyOptions,
+  disabled = false,
 }: {
   label: string;
   amount: number;
@@ -115,6 +124,7 @@ export function MoneyField({
   onAmountChange: (v: number) => void;
   onCurrencyChange: (v: string) => void;
   currencyOptions: { value: string; label: string }[];
+  disabled?: boolean;
 }) {
   const [display, setDisplay] = useState(
     Number.isFinite(amount) ? String(amount) : ""
@@ -134,25 +144,32 @@ export function MoneyField({
           type="number"
           className="w-24 md:w-28"
           inputMode="decimal"
+          disabled={disabled}
           value={display}
           onFocus={() => {
             editingRef.current = true;
           }}
           onBlur={() => {
             editingRef.current = false;
+            if (disabled) return;
             const next =
               display.trim() === "" ? 0 : clampNum(display, 0);
             onAmountChange(next);
             setDisplay(String(next));
           }}
           onChange={(e) => {
+            if (disabled) return;
             const next = e.target.value;
             setDisplay(next);
             if (next.trim() === "") return;
             onAmountChange(clampNum(next, 0));
           }}
         />
-        <Select value={currency} onValueChange={onCurrencyChange}>
+        <Select
+          value={currency}
+          onValueChange={onCurrencyChange}
+          disabled={disabled}
+        >
           <SelectTrigger className="h-9 w-[90px]">
             <SelectValue />
           </SelectTrigger>
@@ -175,18 +192,26 @@ export function SelectField({
   onChange,
   options,
   placeholder,
+  error,
+  disabled = false,
 }: {
   label: React.ReactNode;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
   placeholder?: string;
+  error?: string;
+  disabled?: boolean;
 }) {
   return (
     <div className="space-y-1">
       <Label className="text-sm text-muted-foreground">{label}</Label>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger>
+      <Select value={value} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger
+          className={
+            error ? "border-destructive focus-visible:ring-destructive focus-visible:border-destructive" : undefined
+          }
+        >
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
@@ -197,6 +222,7 @@ export function SelectField({
           ))}
         </SelectContent>
       </Select>
+      {error ? <div className="text-xs text-destructive">{error}</div> : null}
     </div>
   );
 }

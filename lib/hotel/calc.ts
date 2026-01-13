@@ -80,17 +80,19 @@ export function computeHotel(
   hotel: HotelOption,
   fx?: FxRates
 ): Calc {
+  const preferredCurrency = global.preferredCurrency ?? "USD";
+  const taxInputMode = global.taxInputMode ?? "PRE_TAX_PLUS_RATE";
   const nights = Math.max(1, Math.round(global.nights || 1));
   const taxRate = Math.max(0, global.taxRate);
 
   // Price conversion (pre-tax vs post-tax)
   let preTax = 0;
   let postTax = 0;
-  if (global.taxInputMode === "PRE_TAX_PLUS_RATE") {
+  if (taxInputMode === "PRE_TAX_PLUS_RATE") {
     const rate = Math.max(0, hotel.ratePreTax?.amount ?? 0);
     preTax = rate * nights;
     postTax = preTax * (1 + taxRate);
-  } else if (global.taxInputMode === "POST_TAX_PLUS_RATE") {
+  } else if (taxInputMode === "POST_TAX_PLUS_RATE") {
     const rate = Math.max(0, hotel.ratePostTax?.amount ?? 0);
     postTax = rate * nights;
     preTax = postTax / (1 + taxRate);
@@ -104,7 +106,7 @@ export function computeHotel(
   const hotelCurrency =
     hotel.ratePostTax?.currency ??
     hotel.ratePreTax?.currency ??
-    global.preferredCurrency;
+    preferredCurrency;
   const earnBase = program.settings.earnBase === "POST_TAX" ? postTax : preTax;
   const earnBaseBrand = convertCurrency(
     earnBase,
@@ -126,25 +128,26 @@ export function computeHotel(
   const basePoints = earnBaseBrand * baseRate;
   const eliteBonusPoints = basePoints * eliteBonusRate;
 
-  // FN => points
-  const pointValue = Math.max(0, program.settings.pointValue.amount);
+  // Voucher => points
+  const pointValuePerTenThousand = Math.max(0, program.settings.pointValue.amount);
+  const pointValuePerPoint = pointValuePerTenThousand / 10000;
   const pointValueCurrency = program.settings.pointValue.currency;
   const fnValuePoints =
     program.settings.fnValueMode === "POINTS"
       ? Math.max(0, program.settings.fnValuePoints)
-      : pointValue > 0
+      : pointValuePerPoint > 0
         ? convertCurrency(
             Math.max(0, program.settings.fnValueCash.amount),
             program.settings.fnValueCash.currency,
             pointValueCurrency,
             fx
-          ) / pointValue
+          ) / pointValuePerPoint
         : 0;
 
   const spendCurrency = convertCurrency(
     preTax,
     hotelCurrency,
-    global.preferredCurrency,
+    preferredCurrency,
     fx
   );
 
@@ -165,9 +168,9 @@ export function computeHotel(
 
   const totalPoints = basePoints + eliteBonusPoints + promoExtraPoints;
   const pointValuePreferred = convertCurrency(
-    pointValue,
+    pointValuePerPoint,
     pointValueCurrency,
-    global.preferredCurrency,
+    preferredCurrency,
     fx
   );
   const pointsValue = totalPoints * pointValuePreferred;
@@ -175,13 +178,13 @@ export function computeHotel(
   const paidPostTax = convertCurrency(
     postTax,
     hotelCurrency,
-    global.preferredCurrency,
+    preferredCurrency,
     fx
   );
   const paidPreTax = convertCurrency(
     preTax,
     hotelCurrency,
-    global.preferredCurrency,
+    preferredCurrency,
     fx
   );
   const netCost = paidPostTax - pointsValue;

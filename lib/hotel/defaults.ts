@@ -7,16 +7,19 @@ import type {
   Program,
   Rule,
   SupportedCurrency,
+  Language,
 } from "./types";
+import { createTranslator } from "@/lib/i18n";
+import type { LocaleKey } from "@/lib/i18n";
 
 export const uid = () =>
   Math.random().toString(16).slice(2) + Date.now().toString(16);
 
 export const defaultGlobal: GlobalSettings = {
-  preferredCurrency: "USD",
+  preferredCurrency: null,
   nights: 2,
   countryId: "us",
-  taxInputMode: "PRE_TAX_PLUS_RATE",
+  taxInputMode: null,
   taxRate: 0.1,
 };
 
@@ -34,100 +37,315 @@ export function ruleTemplate(name = ""): Rule {
   };
 }
 
-export function mkTier(label: string, rate: number): BrandTier {
-  return { id: uid(), label, ratePerUsd: rate };
+export function mkTier(
+  label: string,
+  rate: number,
+  options?: { i18nKey?: string; i18nAuto?: boolean }
+): BrandTier {
+  return {
+    id: uid(),
+    label,
+    ratePerUsd: rate,
+    i18nKey: options?.i18nKey,
+    i18nAuto: options?.i18nAuto,
+  };
 }
 
-export function mkElite(label: string, bonus: number): EliteTier {
-  return { id: uid(), label, bonusRate: bonus };
+export function mkElite(
+  label: string,
+  bonus: number,
+  options?: { i18nKey?: string; i18nAuto?: boolean }
+): EliteTier {
+  return {
+    id: uid(),
+    label,
+    bonusRate: bonus,
+    i18nKey: options?.i18nKey,
+    i18nAuto: options?.i18nAuto,
+  };
 }
 
-export function defaultPrograms(includeExtras = false): Program[] {
+type TierLabelSet = {
+  en: string;
+  zh: string;
+  "zh-TW": string;
+  es?: string;
+  ko?: string;
+  ja?: string;
+};
+
+const tierLabelMap: Record<string, TierLabelSet> = {
+  "marriott.10x": {
+    en: "10x (most brands)",
+    zh: "10x（大多数品牌）",
+    "zh-TW": "10x（大多數品牌）",
+    es: "10x (la mayoria de marcas)",
+    ko: "10x (대부분 브랜드)",
+    ja: "10x（主要ブランド）",
+  },
+  "marriott.5x.ri": {
+    en: "5x (Residence Inn/Element)",
+    zh: "5x（Residence Inn/Element等）",
+    "zh-TW": "5x（Residence Inn/Element等）",
+    es: "5x (Residence Inn/Element)",
+    ko: "5x (Residence Inn/Element)",
+    ja: "5x（Residence Inn/Element）",
+  },
+  "marriott.4x.studiores": {
+    en: "4x (StudioRes)",
+    zh: "4x（StudioRes）",
+    "zh-TW": "4x（StudioRes）",
+    es: "4x (StudioRes)",
+    ko: "4x (StudioRes)",
+    ja: "4x（StudioRes）",
+  },
+  "marriott.2.5x.exec": {
+    en: "2.5x (Marriott Executive Apartments)",
+    zh: "2.5x（Marriott Executive Apartments）",
+    "zh-TW": "2.5x（Marriott Executive Apartments）",
+    es: "2.5x (Marriott Executive Apartments)",
+    ko: "2.5x (Marriott Executive Apartments)",
+    ja: "2.5x（Marriott Executive Apartments）",
+  },
+  "ihg.10x": {
+    en: "10x (most brands)",
+    zh: "10x（大多数品牌）",
+    "zh-TW": "10x（大多數品牌）",
+    es: "10x (la mayoria de marcas)",
+    ko: "10x (대부분 브랜드)",
+    ja: "10x（主要ブランド）",
+  },
+  "ihg.5x.staybridge": {
+    en: "5x (Staybridge/Candlewood)",
+    zh: "5x（Staybridge/Candlewood等）",
+    "zh-TW": "5x（Staybridge/Candlewood等）",
+    es: "5x (Staybridge/Candlewood)",
+    ko: "5x (Staybridge/Candlewood)",
+    ja: "5x（Staybridge/Candlewood）",
+  },
+  "hyatt.5x": {
+    en: "5x (most brands)",
+    zh: "5x（大多数品牌）",
+    "zh-TW": "5x（大多數品牌）",
+    es: "5x (la mayoria de marcas)",
+    ko: "5x (대부분 브랜드)",
+    ja: "5x（主要ブランド）",
+  },
+  "hyatt.2.5x.studios": {
+    en: "2.5x (Hyatt Studios)",
+    zh: "2.5x（Hyatt Studios）",
+    "zh-TW": "2.5x（Hyatt Studios）",
+    es: "2.5x (Hyatt Studios)",
+    ko: "2.5x (Hyatt Studios)",
+    ja: "2.5x（Hyatt Studios）",
+  },
+  "hilton.10x": {
+    en: "10x (most brands)",
+    zh: "10x（大多数品牌）",
+    "zh-TW": "10x（大多數品牌）",
+    es: "10x (la mayoria de marcas)",
+    ko: "10x (대부분 브랜드)",
+    ja: "10x（主要ブランド）",
+  },
+  "hilton.5x.tru": {
+    en: "5x (Tru/Home2)",
+    zh: "5x（Tru/Home2等）",
+    "zh-TW": "5x（Tru/Home2等）",
+    es: "5x (Tru/Home2)",
+    ko: "5x (Tru/Home2)",
+    ja: "5x（Tru/Home2）",
+  },
+  "hilton.3x.select": {
+    en: "3x (select brands)",
+    zh: "3x（部分品牌）",
+    "zh-TW": "3x（部分品牌）",
+    es: "3x (marcas seleccionadas)",
+    ko: "3x (일부 브랜드)",
+    ja: "3x（対象ブランド）",
+  },
+  "accor.10x": {
+    en: "10x (most brands)",
+    zh: "10x（大多数品牌）",
+    "zh-TW": "10x（大多數品牌）",
+    es: "10x (la mayoria de marcas)",
+    ko: "10x (대부분 브랜드)",
+    ja: "10x（主要ブランド）",
+  },
+  "wyndham.10x": {
+    en: "10x (most brands)",
+    zh: "10x（大多数品牌）",
+    "zh-TW": "10x（大多數品牌）",
+    es: "10x (la mayoria de marcas)",
+    ko: "10x (대부분 브랜드)",
+    ja: "10x（主要ブランド）",
+  },
+  "shangrila.10x": {
+    en: "10x (most brands)",
+    zh: "10x（大多数品牌）",
+    "zh-TW": "10x（大多數品牌）",
+    es: "10x (la mayoria de marcas)",
+    ko: "10x (대부분 브랜드)",
+    ja: "10x（主要ブランド）",
+  },
+  "atour.1x.cny": {
+    en: "1x (1 CNY = 1 pt)",
+    zh: "1x（每 1 CNY = 1 点）",
+    "zh-TW": "1x（每 1 CNY = 1 點）",
+    es: "1x (1 CNY = 1 punto)",
+    ko: "1x (1 CNY = 1포인트)",
+    ja: "1x（1 CNY = 1pt）",
+  },
+  "huazhu.1x.cny": {
+    en: "1x (1 CNY = 1 pt)",
+    zh: "1x（每 1 CNY = 1 点）",
+    "zh-TW": "1x（每 1 CNY = 1 點）",
+    es: "1x (1 CNY = 1 punto)",
+    ko: "1x (1 CNY = 1포인트)",
+    ja: "1x（1 CNY = 1pt）",
+  },
+};
+
+const pickTierLabel = (labels: TierLabelSet, language: Language) => {
+  if (language === "zh") return labels.zh;
+  if (language === "zh-TW") return labels["zh-TW"];
+  if (language === "es" && labels.es) return labels.es;
+  if (language === "ko" && labels.ko) return labels.ko;
+  if (language === "ja" && labels.ja) return labels.ja;
+  return labels.en;
+};
+
+export function getTierLabel(key: string, language: Language) {
+  const labels = tierLabelMap[key];
+  return labels ? pickTierLabel(labels, language) : key;
+}
+
+export function getTierKeyFromLabel(label: string) {
+  const entries = Object.entries(tierLabelMap);
+  for (const [key, labels] of entries) {
+    if (
+      label === labels.en ||
+      label === labels.zh ||
+      label === labels["zh-TW"] ||
+      label === labels.es ||
+      label === labels.ko ||
+      label === labels.ja
+    ) {
+      return key;
+    }
+  }
+  return undefined;
+}
+
+export function defaultPrograms(
+  includeExtras = false,
+  language: Language = "zh"
+): Program[] {
+  const t = createTranslator(language);
+  const bonusSuffix = (bonus: number) =>
+    language === "zh" || language === "zh-TW"
+      ? `（+${Math.round(bonus * 100)}%）`
+      : ` (+${Math.round(bonus * 100)}%)`;
+  const eliteLabel = (key: string, bonus: number) =>
+    `${t(`elite.name.${key}` as LocaleKey)}${bonusSuffix(bonus)}`;
+  const tier = (key: string, rate: number) =>
+    mkTier(getTierLabel(key, language), rate, { i18nKey: key, i18nAuto: true });
+  const brandNames = {
+    marriott: t("brand.preset.marriott"),
+    ihg: t("brand.preset.ihg"),
+    hyatt: t("brand.preset.hyatt"),
+    hilton: t("brand.preset.hilton"),
+    accor: t("brand.preset.accor"),
+    wyndham: t("brand.preset.wyndham"),
+    shangrila: t("brand.preset.shangrila"),
+    atour: t("brand.preset.atour"),
+    huazhu: t("brand.preset.huazhu"),
+  };
   const marriottTiers = [
-    mkTier("10x（大多数品牌）", 10),
-    mkTier("5x（Residence Inn/Element等）", 5),
-    mkTier("4x（StudioRes）", 4),
-    mkTier("2.5x（Marriott Executive Apartments）", 2.5),
+    tier("marriott.10x", 10),
+    tier("marriott.5x.ri", 5),
+    tier("marriott.4x.studiores", 4),
+    tier("marriott.2.5x.exec", 2.5),
   ];
   const marriottElite = [
-    mkElite("会员 Member", 0),
-    mkElite("银卡 Silver（+10%）", 0.1),
-    mkElite("金卡 Gold（+25%）", 0.25),
-    mkElite("白金 Platinum（+50%）", 0.5),
-    mkElite("钛金 Titanium（+75%）", 0.75),
-    mkElite("大使 Titanium（+75%）", 0.75),
+    mkElite(eliteLabel("member", 0), 0, { i18nKey: "member", i18nAuto: true }),
+    mkElite(eliteLabel("silver", 0.1), 0.1, { i18nKey: "silver", i18nAuto: true }),
+    mkElite(eliteLabel("gold", 0.25), 0.25, { i18nKey: "gold", i18nAuto: true }),
+    mkElite(eliteLabel("platinum", 0.5), 0.5, { i18nKey: "platinum", i18nAuto: true }),
+    mkElite(eliteLabel("titanium", 0.75), 0.75, { i18nKey: "titanium", i18nAuto: true }),
+    mkElite(eliteLabel("ambassador", 0.75), 0.75, { i18nKey: "ambassador", i18nAuto: true }),
   ];
 
-  const ihgTiers = [mkTier("10x（大多数品牌）", 10), mkTier("5x（Staybridge/Candlewood等）", 5)];
+  const ihgTiers = [tier("ihg.10x", 10), tier("ihg.5x.staybridge", 5)];
   const ihgElite = [
-    mkElite("会员 Member", 0),
-    mkElite("银卡 Silver（+20%）", 0.2),
-    mkElite("金卡 Gold（+40%）", 0.4),
-    mkElite("白金 Platinum（+60%）", 0.6),
-    mkElite("钻石 Diamond（+100%）", 1.0),
+    mkElite(eliteLabel("member", 0), 0, { i18nKey: "member", i18nAuto: true }),
+    mkElite(eliteLabel("silver", 0.2), 0.2, { i18nKey: "silver", i18nAuto: true }),
+    mkElite(eliteLabel("gold", 0.4), 0.4, { i18nKey: "gold", i18nAuto: true }),
+    mkElite(eliteLabel("platinum", 0.6), 0.6, { i18nKey: "platinum", i18nAuto: true }),
+    mkElite(eliteLabel("diamond", 1.0), 1.0, { i18nKey: "diamond", i18nAuto: true }),
   ];
 
-  const hyattTiers = [mkTier("5x（大多数品牌）", 5), mkTier("2.5x（Hyatt Studios）", 2.5)];
+  const hyattTiers = [tier("hyatt.5x", 5), tier("hyatt.2.5x.studios", 2.5)];
   const hyattElite = [
-    mkElite("会员 Member", 0),
-    mkElite("探索者 Discoverist（+10%）", 0.1),
-    mkElite("冒险家 Explorist（+20%）", 0.2),
-    mkElite("环球客 Globalist（+30%）", 0.3),
+    mkElite(eliteLabel("member", 0), 0, { i18nKey: "member", i18nAuto: true }),
+    mkElite(eliteLabel("discoverist", 0.1), 0.1, { i18nKey: "discoverist", i18nAuto: true }),
+    mkElite(eliteLabel("explorist", 0.2), 0.2, { i18nKey: "explorist", i18nAuto: true }),
+    mkElite(eliteLabel("globalist", 0.3), 0.3, { i18nKey: "globalist", i18nAuto: true }),
   ];
 
   const hiltonTiers = [
-    mkTier("10x（大多数品牌）", 10),
-    mkTier("5x（Tru/Home2等）", 5),
-    mkTier("3x（部分品牌）", 3),
+    tier("hilton.10x", 10),
+    tier("hilton.5x.tru", 5),
+    tier("hilton.3x.select", 3),
   ];
   const hiltonElite = [
-    mkElite("会员 Member", 0),
-    mkElite("银卡 Silver（+20%）", 0.2),
-    mkElite("金卡 Gold（+80%）", 0.8),
-    mkElite("钻石 Diamond（+100%）", 1.0),
+    mkElite(eliteLabel("member", 0), 0, { i18nKey: "member", i18nAuto: true }),
+    mkElite(eliteLabel("silver", 0.2), 0.2, { i18nKey: "silver", i18nAuto: true }),
+    mkElite(eliteLabel("gold", 0.8), 0.8, { i18nKey: "gold", i18nAuto: true }),
+    mkElite(eliteLabel("diamond", 1.0), 1.0, { i18nKey: "diamond", i18nAuto: true }),
   ];
 
-  const accorTiers = [mkTier("10x（大多数品牌）", 10)];
+  const accorTiers = [tier("accor.10x", 10)];
   const accorElite = [
-    mkElite("会员 Member", 0),
-    mkElite("银卡 Silver（+10%）", 0.1),
-    mkElite("金卡 Gold（+25%）", 0.25),
-    mkElite("白金 Platinum（+50%）", 0.5),
+    mkElite(eliteLabel("member", 0), 0, { i18nKey: "member", i18nAuto: true }),
+    mkElite(eliteLabel("silver", 0.1), 0.1, { i18nKey: "silver", i18nAuto: true }),
+    mkElite(eliteLabel("gold", 0.25), 0.25, { i18nKey: "gold", i18nAuto: true }),
+    mkElite(eliteLabel("platinum", 0.5), 0.5, { i18nKey: "platinum", i18nAuto: true }),
   ];
 
-  const wyndhamTiers = [mkTier("10x（大多数品牌）", 10)];
+  const wyndhamTiers = [tier("wyndham.10x", 10)];
   const wyndhamElite = [
-    mkElite("会员 Member", 0),
-    mkElite("金卡 Gold（+10%）", 0.1),
-    mkElite("白金 Platinum（+15%）", 0.15),
-    mkElite("钻石 Diamond（+20%）", 0.2),
+    mkElite(eliteLabel("member", 0), 0, { i18nKey: "member", i18nAuto: true }),
+    mkElite(eliteLabel("gold", 0.1), 0.1, { i18nKey: "gold", i18nAuto: true }),
+    mkElite(eliteLabel("platinum", 0.15), 0.15, { i18nKey: "platinum", i18nAuto: true }),
+    mkElite(eliteLabel("diamond", 0.2), 0.2, { i18nKey: "diamond", i18nAuto: true }),
   ];
 
-  const shangriLaTiers = [mkTier("10x（大多数品牌）", 10)];
+  const shangriLaTiers = [tier("shangrila.10x", 10)];
   const shangriLaElite = [
-    mkElite("会员 Member", 0),
-    mkElite("翡翠 Jade（+25%）", 0.25),
-    mkElite("钻石 Diamond（+50%）", 0.5),
+    mkElite(eliteLabel("member", 0), 0, { i18nKey: "member", i18nAuto: true }),
+    mkElite(eliteLabel("jade", 0.25), 0.25, { i18nKey: "jade", i18nAuto: true }),
+    mkElite(eliteLabel("diamond", 0.5), 0.5, { i18nKey: "diamond", i18nAuto: true }),
   ];
 
-  const atourTiers = [mkTier("1x（每 1 CNY = 1 点）", 1)];
+  const atourTiers = [tier("atour.1x.cny", 1)];
   const atourElite = [
-    mkElite("会员 Member", 0),
-    mkElite("银卡 Silver（+0%）", 0),
-    mkElite("金卡 Gold（+0%）", 0),
-    mkElite("铂金 Platinum（+0%）", 0),
-    mkElite("黑金 Black（+100%）", 1.0),
+    mkElite(eliteLabel("member", 0), 0, { i18nKey: "member", i18nAuto: true }),
+    mkElite(eliteLabel("silver", 0), 0, { i18nKey: "silver", i18nAuto: true }),
+    mkElite(eliteLabel("gold", 0), 0, { i18nKey: "gold", i18nAuto: true }),
+    mkElite(eliteLabel("platinum", 0), 0, { i18nKey: "platinum", i18nAuto: true }),
+    mkElite(eliteLabel("black", 1.0), 1.0, { i18nKey: "black", i18nAuto: true }),
   ];
 
-  const huazhuTiers = [mkTier("1x（每 1 CNY = 1 点）", 1)];
+  const huazhuTiers = [tier("huazhu.1x.cny", 1)];
   const huazhuElite = [
-    mkElite("星会员 Star（+0%）", 0),
-    mkElite("银卡 Silver（+100%）", 1.0),
-    mkElite("金卡 Gold（+150%）", 1.5),
-    mkElite("铂金 Platinum（+150%）", 1.5),
+    mkElite(eliteLabel("star", 0), 0, { i18nKey: "star", i18nAuto: true }),
+    mkElite(eliteLabel("silver", 1.0), 1.0, { i18nKey: "silver", i18nAuto: true }),
+    mkElite(eliteLabel("gold", 1.5), 1.5, { i18nKey: "gold", i18nAuto: true }),
+    mkElite(eliteLabel("platinum", 1.5), 1.5, { i18nKey: "platinum", i18nAuto: true }),
   ];
 
   const mkProgram = (
+    presetId: string,
     name: string,
     tiers: BrandTier[],
     elite: EliteTier[],
@@ -138,12 +356,16 @@ export function defaultPrograms(includeExtras = false): Program[] {
     return {
       id: uid(),
       name,
+      presetId,
+      nameI18nKey: presetId,
+      nameI18nAuto: true,
       currency: "USD",
       brandTiers: tiers,
       eliteTiers: elite,
       settings: {
         eliteTierId,
         pointValue: money(pointValue, "USD"),
+        fnVoucherEnabled: true,
         fnValueMode: "CASH",
         fnValueCash: money(fnCash, "USD"),
         fnValuePoints: 50000,
@@ -154,26 +376,30 @@ export function defaultPrograms(includeExtras = false): Program[] {
   };
 
   const basePrograms = [
-    mkProgram("万豪 Marriott Bonvoy", marriottTiers, marriottElite, 0.008, 400),
-    mkProgram("洲际 IHG One Rewards", ihgTiers, ihgElite, 0.006, 250),
-    mkProgram("凯悦 World of Hyatt", hyattTiers, hyattElite, 0.015, 450),
-    mkProgram("希尔顿 Hilton Honors", hiltonTiers, hiltonElite, 0.005, 300),
+    mkProgram("marriott", brandNames.marriott, marriottTiers, marriottElite, 80, 400),
+    mkProgram("ihg", brandNames.ihg, ihgTiers, ihgElite, 60, 250),
+    mkProgram("hyatt", brandNames.hyatt, hyattTiers, hyattElite, 150, 450),
+    mkProgram("hilton", brandNames.hilton, hiltonTiers, hiltonElite, 50, 300),
   ];
   if (!includeExtras) return basePrograms;
   return [
     ...basePrograms,
-    mkProgram("雅高 Accor Live Limitless", accorTiers, accorElite, 0.01, 300),
-    mkProgram("温德姆 Wyndham Rewards", wyndhamTiers, wyndhamElite, 0.008, 280),
-    mkProgram("香格里拉 Shangri-La Circle", shangriLaTiers, shangriLaElite, 0.012, 350),
+    mkProgram("accor", brandNames.accor, accorTiers, accorElite, 100, 300),
+    mkProgram("wyndham", brandNames.wyndham, wyndhamTiers, wyndhamElite, 80, 280),
+    mkProgram("shangrila", brandNames.shangrila, shangriLaTiers, shangriLaElite, 120, 350),
     {
       id: uid(),
-      name: "亚朵 Atour",
+      name: brandNames.atour,
+      presetId: "atour",
+      nameI18nKey: "atour",
+      nameI18nAuto: true,
       currency: "CNY",
       brandTiers: atourTiers,
       eliteTiers: atourElite,
       settings: {
         eliteTierId: atourElite[0]?.id ?? uid(),
-        pointValue: money(0.01, "CNY"),
+        pointValue: money(100, "CNY"),
+        fnVoucherEnabled: true,
         fnValueMode: "POINTS",
         fnValueCash: money(0, "CNY"),
         fnValuePoints: 0,
@@ -183,13 +409,17 @@ export function defaultPrograms(includeExtras = false): Program[] {
     },
     {
       id: uid(),
-      name: "华住会 H World",
+      name: brandNames.huazhu,
+      presetId: "huazhu",
+      nameI18nKey: "huazhu",
+      nameI18nAuto: true,
       currency: "CNY",
       brandTiers: huazhuTiers,
       eliteTiers: huazhuElite,
       settings: {
         eliteTierId: huazhuElite[0]?.id ?? uid(),
-        pointValue: money(0.01, "CNY"),
+        pointValue: money(100, "CNY"),
+        fnVoucherEnabled: true,
         fnValueMode: "POINTS",
         fnValueCash: money(0, "CNY"),
         fnValuePoints: 0,

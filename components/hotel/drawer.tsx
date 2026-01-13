@@ -11,6 +11,7 @@ export function Drawer({
   children,
   footer,
   zIndex = 40,
+  disableClose = false,
 }: {
   open: boolean;
   title: React.ReactNode;
@@ -18,14 +19,20 @@ export function Drawer({
   children: React.ReactNode;
   footer?: React.ReactNode;
   zIndex?: number;
+  disableClose?: boolean;
 }) {
+  const handleClose = () => {
+    if (disableClose) return;
+    onClose();
+  };
+
   return (
     <>
       <div
         className={`fixed inset-0 h-[100dvh] w-[100dvw] bg-black/30 transition-opacity ${
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
-        onClick={onClose}
+        onClick={handleClose}
         style={{ zIndex }}
       />
       <div
@@ -37,7 +44,12 @@ export function Drawer({
         <div className="h-full flex flex-col">
           <div className="p-4 border-b flex items-center justify-between gap-3">
             <div className="font-semibold">{title}</div>
-            <Button variant="ghost" size="icon" onClick={onClose}>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClose}
+              disabled={disableClose}
+            >
               <X className="w-4 h-4" />
             </Button>
           </div>
