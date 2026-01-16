@@ -40,7 +40,8 @@ export function zhe(netRatio: number, language: Language = "zh") {
 export function ruleSummary(
   rule: Rule,
   currency: SupportedCurrency,
-  language: Language = "zh"
+  language: Language = "zh",
+  voucherNameById?: (id: string) => string | undefined
 ) {
   const t = createTranslator(language);
   const trigger = rule.trigger;
@@ -64,7 +65,12 @@ export function ruleSummary(
       ? t("ruleSummary.reward.points", { points: reward.points })
       : reward.type === "multiplier"
         ? t("ruleSummary.reward.multiplier", { multiplier: reward.z })
-        : t("ruleSummary.reward.fn", { count: reward.count });
+        : t("ruleSummary.reward.voucher", {
+            count: reward.count,
+            name: reward.voucherId
+              ? voucherNameById?.(reward.voucherId) ?? t("ruleSummary.reward.voucher.unknown")
+              : t("ruleSummary.reward.voucher.unknown"),
+          });
 
   return `${trig} → ${rew}`;
 }

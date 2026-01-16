@@ -92,4 +92,28 @@
       linear-gradient(180deg, oklch(0.99 0.01 95), oklch(0.97 0.02 85));
     background-attachment: fixed;
   }
+  body:lang(zh),
+  body:lang(zh-CN) {
+    font-family:
+      "PingFang SC",
+      "Hiragino Sans GB",
+      "Microsoft YaHei",
+      "Noto Sans CJK SC",
+      "Source Han Sans SC",
+      var(--font-geist-sans),
+      system-ui,
+      sans-serif;
+  }
+  body:lang(zh-HK),
+  body:lang(zh-TW) {
+    font-family:
+      "PingFang TC",
+      "Heiti TC",
+      "Microsoft JhengHei",
+      "Noto Sans CJK TC",
+      "Source Han Sans TC",
+      var(--font-geist-sans),
+      system-ui,
+      sans-serif;
+  }
 }

@@ -6,7 +6,9 @@ import type {
   Money,
   Program,
   Rule,
+  SubBrand,
   SupportedCurrency,
+  Voucher,
   Language,
 } from "./types";
 import { createTranslator } from "@/lib/i18n";
@@ -63,6 +65,15 @@ export function mkElite(
     i18nKey: options?.i18nKey,
     i18nAuto: options?.i18nAuto,
   };
+}
+
+export function mkVoucher(
+  name: string,
+  valueMode: "CASH" | "POINTS",
+  valueCash: Money,
+  valuePoints: number
+): Voucher {
+  return { id: uid(), name, valueMode, valueCash, valuePoints };
 }
 
 type TierLabelSet = {
@@ -249,6 +260,17 @@ export function defaultPrograms(
     `${t(`elite.name.${key}` as LocaleKey)}${bonusSuffix(bonus)}`;
   const tier = (key: string, rate: number) =>
     mkTier(getTierLabel(key, language), rate, { i18nKey: key, i18nAuto: true });
+  const subBrand = (key: string, tierKey: string, tiers: BrandTier[]): SubBrand => {
+    const tierId =
+      tiers.find((tier) => tier.i18nKey === tierKey)?.id ?? tiers[0]?.id ?? uid();
+    return {
+      id: uid(),
+      name: t(`subbrand.${key}` as LocaleKey),
+      tierId,
+      i18nKey: key,
+      i18nAuto: true,
+    };
+  };
   const brandNames = {
     marriott: t("brand.preset.marriott"),
     ihg: t("brand.preset.ihg"),
@@ -332,7 +354,10 @@ export function defaultPrograms(
     mkElite(eliteLabel("member", 0), 0, { i18nKey: "member", i18nAuto: true }),
     mkElite(eliteLabel("silver", 0), 0, { i18nKey: "silver", i18nAuto: true }),
     mkElite(eliteLabel("gold", 0), 0, { i18nKey: "gold", i18nAuto: true }),
-    mkElite(eliteLabel("platinum", 0), 0, { i18nKey: "platinum", i18nAuto: true }),
+    mkElite(eliteLabel("platinum_atour", 0), 0, {
+      i18nKey: "platinum_atour",
+      i18nAuto: true,
+    }),
     mkElite(eliteLabel("black", 1.0), 1.0, { i18nKey: "black", i18nAuto: true }),
   ];
 
@@ -344,13 +369,69 @@ export function defaultPrograms(
     mkElite(eliteLabel("platinum", 1.5), 1.5, { i18nKey: "platinum", i18nAuto: true }),
   ];
 
+  const marriottSubBrands = [
+    subBrand("marriott.ritz-carlton", "marriott.10x", marriottTiers),
+    subBrand("marriott.st-regis", "marriott.10x", marriottTiers),
+    subBrand("marriott.jw-marriott", "marriott.10x", marriottTiers),
+    subBrand("marriott.marriott", "marriott.10x", marriottTiers),
+    subBrand("marriott.sheraton", "marriott.10x", marriottTiers),
+    subBrand("marriott.westin", "marriott.10x", marriottTiers),
+    subBrand("marriott.w", "marriott.10x", marriottTiers),
+    subBrand("marriott.le-meridien", "marriott.10x", marriottTiers),
+    subBrand("marriott.renaissance", "marriott.10x", marriottTiers),
+    subBrand("marriott.autograph-collection", "marriott.10x", marriottTiers),
+    subBrand("marriott.delta", "marriott.10x", marriottTiers),
+    subBrand("marriott.fairfield", "marriott.10x", marriottTiers),
+    subBrand("marriott.courtyard", "marriott.10x", marriottTiers),
+    subBrand("marriott.residence-inn", "marriott.5x.ri", marriottTiers),
+    subBrand("marriott.element", "marriott.5x.ri", marriottTiers),
+    subBrand("marriott.studiores", "marriott.4x.studiores", marriottTiers),
+    subBrand("marriott.exec-apartments", "marriott.2.5x.exec", marriottTiers),
+  ];
+
+  const ihgSubBrands = [
+    subBrand("ihg.intercontinental", "ihg.10x", ihgTiers),
+    subBrand("ihg.regent", "ihg.10x", ihgTiers),
+    subBrand("ihg.kimpton", "ihg.10x", ihgTiers),
+    subBrand("ihg.holiday-inn", "ihg.10x", ihgTiers),
+    subBrand("ihg.crowne-plaza", "ihg.10x", ihgTiers),
+    subBrand("ihg.holiday-inn-express", "ihg.10x", ihgTiers),
+    subBrand("ihg.staybridge-suites", "ihg.5x.staybridge", ihgTiers),
+    subBrand("ihg.candlewood-suites", "ihg.5x.staybridge", ihgTiers),
+  ];
+
+  const hyattSubBrands = [
+    subBrand("hyatt.park-hyatt", "hyatt.5x", hyattTiers),
+    subBrand("hyatt.grand-hyatt", "hyatt.5x", hyattTiers),
+    subBrand("hyatt.hyatt-regency", "hyatt.5x", hyattTiers),
+    subBrand("hyatt.andaz", "hyatt.5x", hyattTiers),
+    subBrand("hyatt.alila", "hyatt.5x", hyattTiers),
+    subBrand("hyatt.caption", "hyatt.5x", hyattTiers),
+    subBrand("hyatt.hyatt-house", "hyatt.5x", hyattTiers),
+    subBrand("hyatt.hyatt-place", "hyatt.5x", hyattTiers),
+    subBrand("hyatt.hyatt-studios", "hyatt.2.5x.studios", hyattTiers),
+  ];
+
+  const hiltonSubBrands = [
+    subBrand("hilton.waldorf-astoria", "hilton.10x", hiltonTiers),
+    subBrand("hilton.conrad", "hilton.10x", hiltonTiers),
+    subBrand("hilton.hilton", "hilton.10x", hiltonTiers),
+    subBrand("hilton.doubletree", "hilton.10x", hiltonTiers),
+    subBrand("hilton.embassy-suites", "hilton.10x", hiltonTiers),
+    subBrand("hilton.hampton", "hilton.10x", hiltonTiers),
+    subBrand("hilton.tru", "hilton.5x.tru", hiltonTiers),
+    subBrand("hilton.home2", "hilton.5x.tru", hiltonTiers),
+  ];
+
   const mkProgram = (
     presetId: string,
     name: string,
     tiers: BrandTier[],
     elite: EliteTier[],
+    subBrands: SubBrand[],
     pointValue: number,
-    fnCash: number
+    vouchers: Voucher[],
+    voucherEnabled: boolean
   ): Program => {
     const eliteTierId = elite[0]?.id ?? uid();
     return {
@@ -362,13 +443,12 @@ export function defaultPrograms(
       currency: "USD",
       brandTiers: tiers,
       eliteTiers: elite,
+      subBrands,
       settings: {
         eliteTierId,
         pointValue: money(pointValue, "USD"),
-        fnVoucherEnabled: true,
-        fnValueMode: "CASH",
-        fnValueCash: money(fnCash, "USD"),
-        fnValuePoints: 50000,
+        voucherEnabled,
+        vouchers,
         earnBase: "PRE_TAX",
         rules: [],
       },
@@ -376,17 +456,87 @@ export function defaultPrograms(
   };
 
   const basePrograms = [
-    mkProgram("marriott", brandNames.marriott, marriottTiers, marriottElite, 80, 400),
-    mkProgram("ihg", brandNames.ihg, ihgTiers, ihgElite, 60, 250),
-    mkProgram("hyatt", brandNames.hyatt, hyattTiers, hyattElite, 150, 450),
-    mkProgram("hilton", brandNames.hilton, hiltonTiers, hiltonElite, 50, 300),
+    mkProgram(
+      "marriott",
+      brandNames.marriott,
+      marriottTiers,
+      marriottElite,
+      marriottSubBrands,
+      80,
+      [
+        mkVoucher("35K", "POINTS", money(0, "USD"), 35000),
+        mkVoucher("50K", "POINTS", money(0, "USD"), 50000),
+        mkVoucher("85K", "POINTS", money(0, "USD"), 85000),
+      ],
+      true
+    ),
+    mkProgram(
+      "ihg",
+      brandNames.ihg,
+      ihgTiers,
+      ihgElite,
+      ihgSubBrands,
+      60,
+      [mkVoucher("40K", "POINTS", money(0, "USD"), 40000)],
+      true
+    ),
+    mkProgram(
+      "hyatt",
+      brandNames.hyatt,
+      hyattTiers,
+      hyattElite,
+      hyattSubBrands,
+      150,
+      [
+        mkVoucher("C4", "CASH", money(0, "USD"), 0),
+        mkVoucher("C7", "CASH", money(0, "USD"), 0),
+      ],
+      true
+    ),
+    mkProgram(
+      "hilton",
+      brandNames.hilton,
+      hiltonTiers,
+      hiltonElite,
+      hiltonSubBrands,
+      50,
+      [],
+      false
+    ),
   ];
   if (!includeExtras) return basePrograms;
   return [
     ...basePrograms,
-    mkProgram("accor", brandNames.accor, accorTiers, accorElite, 100, 300),
-    mkProgram("wyndham", brandNames.wyndham, wyndhamTiers, wyndhamElite, 80, 280),
-    mkProgram("shangrila", brandNames.shangrila, shangriLaTiers, shangriLaElite, 120, 350),
+    mkProgram(
+      "accor",
+      brandNames.accor,
+      accorTiers,
+      accorElite,
+      [],
+      100,
+      [],
+      false
+    ),
+    mkProgram(
+      "wyndham",
+      brandNames.wyndham,
+      wyndhamTiers,
+      wyndhamElite,
+      [],
+      80,
+      [],
+      false
+    ),
+    mkProgram(
+      "shangrila",
+      brandNames.shangrila,
+      shangriLaTiers,
+      shangriLaElite,
+      [],
+      120,
+      [],
+      false
+    ),
     {
       id: uid(),
       name: brandNames.atour,
@@ -396,13 +546,12 @@ export function defaultPrograms(
       currency: "CNY",
       brandTiers: atourTiers,
       eliteTiers: atourElite,
+      subBrands: [],
       settings: {
         eliteTierId: atourElite[0]?.id ?? uid(),
         pointValue: money(100, "CNY"),
-        fnVoucherEnabled: true,
-        fnValueMode: "POINTS",
-        fnValueCash: money(0, "CNY"),
-        fnValuePoints: 0,
+        voucherEnabled: false,
+        vouchers: [],
         earnBase: "POST_TAX",
         rules: [],
       },
@@ -416,13 +565,12 @@ export function defaultPrograms(
       currency: "CNY",
       brandTiers: huazhuTiers,
       eliteTiers: huazhuElite,
+      subBrands: [],
       settings: {
         eliteTierId: huazhuElite[0]?.id ?? uid(),
         pointValue: money(100, "CNY"),
-        fnVoucherEnabled: true,
-        fnValueMode: "POINTS",
-        fnValueCash: money(0, "CNY"),
-        fnValuePoints: 0,
+        voucherEnabled: false,
+        vouchers: [],
         earnBase: "POST_TAX",
         rules: [],
       },
@@ -439,8 +587,10 @@ export function defaultHotel(
   return {
     id: uid(),
     name: "酒店",
+    nameI18nAuto: true,
     programId: p?.id ?? "",
     brandTierId: tierId,
+    subBrandId: null,
     ratePreTax: null,
     ratePostTax: { amount: 900, currency: preferredCurrency },
     rules: [],

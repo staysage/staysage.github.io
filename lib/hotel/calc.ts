@@ -57,7 +57,7 @@ function rewardToExtraPoints(
   reward: Reward,
   times: number,
   basePoints: number,
-  fnValuePoints: number
+  voucherValuePoints: (voucherId: string) => number
 ): number {
   switch (reward.type) {
     case "points":
@@ -67,8 +67,8 @@ function rewardToExtraPoints(
       // multiplier applies ONCE to base points in our model. Trigger times ignored.
       return basePoints * (z - 1);
     }
-    case "fn":
-      return Math.max(0, reward.count) * fnValuePoints * times;
+    case "voucher":
+      return Math.max(0, reward.count) * voucherValuePoints(reward.voucherId) * times;
     default:
       return 0;
   }
@@ -128,21 +128,23 @@ export function computeHotel(
   const basePoints = earnBaseBrand * baseRate;
   const eliteBonusPoints = basePoints * eliteBonusRate;
 
-  // Voucher => points
   const pointValuePerTenThousand = Math.max(0, program.settings.pointValue.amount);
   const pointValuePerPoint = pointValuePerTenThousand / 10000;
   const pointValueCurrency = program.settings.pointValue.currency;
-  const fnValuePoints =
-    program.settings.fnValueMode === "POINTS"
-      ? Math.max(0, program.settings.fnValuePoints)
-      : pointValuePerPoint > 0
-        ? convertCurrency(
-            Math.max(0, program.settings.fnValueCash.amount),
-            program.settings.fnValueCash.currency,
-            pointValueCurrency,
-            fx
-          ) / pointValuePerPoint
-        : 0;
+  const voucherValuePoints = (voucherId: string) => {
+    const voucher = program.settings.vouchers.find((v) => v.id === voucherId);
+    if (!voucher) return 0;
+    if (voucher.valueMode === "POINTS") return Math.max(0, voucher.valuePoints);
+    if (pointValuePerPoint <= 0) return 0;
+    return (
+      convertCurrency(
+        Math.max(0, voucher.valueCash.amount),
+        voucher.valueCash.currency,
+        pointValueCurrency,
+        fx
+      ) / pointValuePerPoint
+    );
+  };
 
   const spendCurrency = convertCurrency(
     preTax,
@@ -162,7 +164,7 @@ export function computeHotel(
       rule.reward,
       times,
       basePoints,
-      fnValuePoints
+      voucherValuePoints
     );
   }
 

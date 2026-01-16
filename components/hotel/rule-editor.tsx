@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Trash2 } from "lucide-react";
-import type { Language, Rule, SupportedCurrency } from "@/lib/hotel/types";
+import type { Language, Rule, SupportedCurrency, Voucher } from "@/lib/hotel/types";
 import { ruleSummary } from "@/lib/hotel/format";
 import { createTranslator } from "@/lib/i18n";
 import { NumberField, SelectField, TextField } from "@/components/hotel/fields";
@@ -16,8 +16,9 @@ export function RuleEditor({
   nameMode = "auto",
   autoName,
   onNameFocus,
-  fnVoucherEnabled = true,
-  onRequestFnVoucher,
+  voucherEnabled = true,
+  vouchers = [],
+  onRequestVoucher,
   onUpdate,
   onRemove,
 }: {
@@ -27,15 +28,24 @@ export function RuleEditor({
   nameMode?: "auto" | "manual";
   autoName?: string;
   onNameFocus?: () => void;
-  fnVoucherEnabled?: boolean;
-  onRequestFnVoucher?: () => void;
+  voucherEnabled?: boolean;
+  vouchers?: Voucher[];
+  onRequestVoucher?: () => void;
   onUpdate: (patch: Partial<Rule>) => void;
   onRemove: () => void;
 }) {
   const t = createTranslator(language);
   const trigger = rule.trigger;
   const reward = rule.reward;
-  const fnUnavailable = reward.type === "fn" && !fnVoucherEnabled;
+  const voucherMissing =
+    reward.type === "voucher" &&
+    !vouchers.some((voucher) => voucher.id === reward.voucherId);
+  const voucherUnavailable =
+    reward.type === "voucher" && (!voucherEnabled || voucherMissing);
+  const rewardSelectValue =
+    reward.type === "voucher"
+      ? `voucher:${reward.voucherId}`
+      : reward.type;
 
   return (
     <div className="rounded-2xl border p-4 space-y-3">
@@ -52,7 +62,9 @@ export function RuleEditor({
               </Label>
             </div>
             <div className="text-xs text-muted-foreground">
-            {ruleSummary(rule, currency, language)}
+            {ruleSummary(rule, currency, language, (id) =>
+              vouchers.find((voucher) => voucher.id === id)?.name
+            )}
             </div>
           </div>
         <Button
@@ -128,16 +140,22 @@ export function RuleEditor({
 
         <SelectField
           label={t("ruleEditor.rewardType")}
-          value={reward.type}
+          value={rewardSelectValue}
           onChange={(v) => {
             if (v === "points") onUpdate({ reward: { type: "points", points: 1000 } });
             else if (v === "multiplier") onUpdate({ reward: { type: "multiplier", z: 2 } });
-            else onUpdate({ reward: { type: "fn", count: 1 } });
+            else if (v.startsWith("voucher:")) {
+              const voucherId = v.replace("voucher:", "");
+              onUpdate({ reward: { type: "voucher", voucherId, count: 1 } });
+            }
           }}
           options={[
             { value: "points", label: t("ruleEditor.reward.points") },
             { value: "multiplier", label: t("ruleEditor.reward.multiplier") },
-            { value: "fn", label: t("ruleEditor.reward.fn") },
+            ...vouchers.map((voucher) => ({
+              value: `voucher:${voucher.id}`,
+              label: voucher.name || t("ruleSummary.reward.voucher.unknown"),
+            })),
           ]}
         />
 
@@ -165,9 +183,9 @@ export function RuleEditor({
           />
         ) : null}
 
-        {reward.type === "fn" ? (
+        {reward.type === "voucher" ? (
           <NumberField
-            label={t("ruleEditor.reward.fn.label")}
+            label={t("ruleEditor.reward.voucher.label")}
             value={reward.count}
             step={1}
             onChange={(v) =>
@@ -176,17 +194,17 @@ export function RuleEditor({
           />
         ) : null}
       </div>
-      {fnUnavailable ? (
+      {voucherUnavailable ? (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
-          <span>{t("ruleEditor.reward.fn.unavailable")}</span>
-          {onRequestFnVoucher ? (
+          <span>{t("ruleEditor.reward.voucher.unavailable")}</span>
+          {onRequestVoucher ? (
             <Button
               variant="ghost"
               size="sm"
               className="h-7 px-2 rounded-lg"
-              onClick={onRequestFnVoucher}
+              onClick={onRequestVoucher}
             >
-              {t("ruleEditor.reward.fn.action")}
+              {t("ruleEditor.reward.voucher.action")}
             </Button>
           ) : null}
         </div>

@@ -37,7 +37,7 @@ export type Trigger =
 export type Reward =
   | { type: "points"; points: number }
   | { type: "multiplier"; z: number }
-  | { type: "fn"; count: number };
+  | { type: "voucher"; voucherId: string; count: number };
 
 export type Rule = {
   id: string;
@@ -66,12 +66,28 @@ export type EliteTier = {
 export type ProgramSettings = {
   eliteTierId: string;
   pointValue: Money; // currency per 10k points
-  fnVoucherEnabled: boolean;
-  fnValueMode: "CASH" | "POINTS";
-  fnValueCash: Money; // if CASH => currency
-  fnValuePoints: number; // if POINTS => points
+  voucherEnabled: boolean;
+  vouchers: Voucher[];
   earnBase: "PRE_TAX" | "POST_TAX";
   rules: Rule[]; // brand-level promo rules
+};
+
+export type SubBrand = {
+  id: string;
+  name: string;
+  tierId: string;
+  i18nKey?: string;
+  i18nAuto?: boolean;
+};
+
+export type Voucher = {
+  id: string;
+  name: string;
+  valueMode: "CASH" | "POINTS";
+  valueCash: Money;
+  valuePoints: number;
+  i18nKey?: string;
+  i18nAuto?: boolean;
 };
 
 export type Program = {
@@ -85,14 +101,17 @@ export type Program = {
   currency: SupportedCurrency;
   brandTiers: BrandTier[];
   eliteTiers: EliteTier[];
+  subBrands: SubBrand[];
   settings: ProgramSettings;
 };
 
 export type HotelOption = {
   id: string;
   name: string;
+  nameI18nAuto?: boolean;
   programId: string;
   brandTierId: string;
+  subBrandId?: string | null;
   ratePreTax: Money | null;
   ratePostTax: Money | null;
   rules: Rule[]; // hotel-specific rules
