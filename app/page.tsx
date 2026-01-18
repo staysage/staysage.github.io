@@ -16,6 +16,7 @@ import { HotelsSection } from "@/components/hotel/sections/HotelsSection";
 import { PageTabs } from "@/components/hotel/page-tabs";
 import { ConfirmDialog } from "@/components/hotel/confirm-dialog";
 import { useHotelState } from "@/components/hotel/useHotelState";
+import type { Language } from "@/lib/hotel/types";
 import {
   Select,
   SelectContent,
