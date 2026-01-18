@@ -27,7 +27,6 @@ export function HotelsSection({
   brandLogo,
   brandColor,
   onAddHotel,
-  onRequireBrand,
   onOpenDetails,
   onEditHotel,
   onDeleteHotel,
@@ -42,16 +41,11 @@ export function HotelsSection({
   brandLogo: (name: string) => { src: string; alt: string } | null;
   brandColor: (program: Program) => string;
   onAddHotel: () => void;
-  onRequireBrand: () => void;
   onOpenDetails: (id: string) => void;
   onEditHotel: (id: string) => void;
   onDeleteHotel: (id: string) => void;
 }) {
   const handleAdd = () => {
-    if (programById.size === 0) {
-      onRequireBrand();
-      return;
-    }
     onAddHotel();
   };
 

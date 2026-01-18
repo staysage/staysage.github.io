@@ -62,8 +62,8 @@ export default function HotelChooserAllPrograms() {
     languageOptions,
     preferencesOpen,
     setPreferencesOpen,
-    firstVisitPromptOpen,
-    setFirstVisitPromptOpen,
+    firstVisitFlow,
+    startFirstBrandFlow,
     confirmState,
     setConfirmState,
     countries,
@@ -89,6 +89,8 @@ export default function HotelChooserAllPrograms() {
     brandDrawerOpen,
     brandEditingId,
     brandPresetId,
+    brandSubBrandFocusKey,
+    returnToHotelAfterBrand,
     brandDraftState,
     setBrandDrawerOpen,
     setBrandPresetId,
@@ -102,7 +104,6 @@ export default function HotelChooserAllPrograms() {
     hotelDraftState,
     setHotelDrawerOpen,
     setHotelDraftState,
-    hotelRulesOpen,
     setHotelRulesOpen,
     hotelRulePickerKey,
     setHotelRulePickerKey,
@@ -110,6 +111,11 @@ export default function HotelChooserAllPrograms() {
     setHotelDetailOpen,
     openBrandDrawerNew,
     openBrandDrawerEdit,
+    openBrandDrawerSubBrand,
+    closeBrandDrawer,
+    updateBrandDraft,
+    hotelResumeStep,
+    setHotelResumeStep,
     copyBrand,
     deleteBrand,
     openHotelDrawerNew,
@@ -143,7 +149,6 @@ export default function HotelChooserAllPrograms() {
     formatEliteLabel,
     persistPreferencesSet,
     defaultGlobal,
-    defaultPrograms,
     uid,
     getDefaultCountryName,
     isDefaultCountryName,
@@ -277,10 +282,6 @@ export default function HotelChooserAllPrograms() {
             brandLogo={brandLogo}
             brandColor={brandColor}
             onAddHotel={openHotelDrawerNew}
-            onRequireBrand={() => {
-              setPage("brands");
-              openBrandDrawerNew();
-            }}
             onOpenDetails={openHotelDetail}
             onEditHotel={openHotelDrawerEdit}
             onDeleteHotel={deleteHotel}
@@ -313,7 +314,7 @@ export default function HotelChooserAllPrograms() {
             brandEditingId={brandEditingId}
             brandPresetId={brandPresetId}
             brandDraftState={brandDraftState}
-            onClose={() => setBrandDrawerOpen(false)}
+            onClose={closeBrandDrawer}
             onSave={saveBrandDraft}
             onPresetChange={(v) => {
               setBrandPresetId(v);
@@ -328,6 +329,9 @@ export default function HotelChooserAllPrograms() {
             language={language}
             brandLogo={brandLogo}
             formatEliteLabel={formatEliteLabel}
+            subBrandFocusKey={brandSubBrandFocusKey}
+            onUpdateBrandDraft={updateBrandDraft}
+            returnToHotelAfterBrand={returnToHotelAfterBrand}
             brandRulesOpen={brandRulesOpen}
             onToggleRules={() => setBrandRulesOpen((v) => !v)}
             brandRulePickerKey={brandRulePickerKey}
@@ -368,6 +372,8 @@ export default function HotelChooserAllPrograms() {
             global={global}
             preferencesComplete={preferencesComplete}
             onClose={handlePreferencesClose}
+            firstVisitMode={firstVisitFlow}
+            onFirstBrand={startFirstBrandFlow}
             onLanguageChange={handleLanguageChange}
             onCurrencyChange={(currency) => {
               persistPreferencesSet();
@@ -419,7 +425,7 @@ export default function HotelChooserAllPrograms() {
                   cancelLabel: t("common.cancel"),
                   destructive: true,
                   onConfirm: () => {
-                    setPrograms(defaultPrograms(false, language));
+                    setPrograms([]);
                     setHotels([]);
                     setBrandPresetId("custom");
                     setConfirmState(null);
@@ -446,10 +452,15 @@ export default function HotelChooserAllPrograms() {
             }
         >
           <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs font-semibold text-muted-foreground">
+              <div>{t("country.name")}</div>
+              <div>{t("country.taxRate")}</div>
+              <div />
+            </div>
             {countries.map((c) => (
                 <div key={c.id} className="grid grid-cols-1 md:grid-cols-3 gap-2 items-end">
                   <TextField
-                      label={t("country.name")}
+                      label=""
                       value={
                         getDefaultCountryName(c) && isDefaultCountryName(c)
                           ? getDefaultCountryName(c) ?? c.name
@@ -462,7 +473,7 @@ export default function HotelChooserAllPrograms() {
                       }
                   />
                     <NumberField
-                      label={t("country.taxRate")}
+                      label=""
                       value={c.taxRate * 100}
                       step={1}
                       inputClassName="w-24 md:w-28"
@@ -510,13 +521,14 @@ export default function HotelChooserAllPrograms() {
             hotelDraftState={hotelDraftState}
             programs={programs}
             programById={programById}
+            brandLogo={brandLogo}
+            brandColor={brandColor}
+            formatEliteLabel={formatEliteLabel}
             preferredCurrency={preferredCurrency}
             supportedCurrencies={supportedCurrencies}
             currencyLabel={currencyLabel}
             taxInputMode={taxInputMode}
-            hotelRulesOpen={hotelRulesOpen}
             hotelRulePickerKey={hotelRulePickerKey}
-            onToggleRules={() => setHotelRulesOpen((v) => !v)}
             onBumpRulePickerKey={() => setHotelRulePickerKey((k) => k + 1)}
             onOpenRuleEditor={(triggerType, ruleId) =>
               openRuleEditor("hotel", triggerType, ruleId)
@@ -526,6 +538,12 @@ export default function HotelChooserAllPrograms() {
             onUpdateHotelDraft={(patch) =>
               setHotelDraftState((s) => (s ? { ...s, ...patch } : s))
             }
+            resumeStep={hotelResumeStep}
+            onConsumeResumeStep={() => setHotelResumeStep(null)}
+            onRequestAddSubBrand={(programId) => {
+              setHotelDrawerOpen(false);
+              openBrandDrawerSubBrand(programId);
+            }}
             onRequestDeleteRule={(ruleId) =>
               setConfirmState({
                 title: t("confirm.delete.rule"),
@@ -603,22 +621,10 @@ export default function HotelChooserAllPrograms() {
             confirmLabel={confirmState?.confirmLabel ?? ""}
             cancelLabel={confirmState?.cancelLabel ?? ""}
             destructive={confirmState?.destructive}
+            showCancel={confirmState?.showCancel ?? true}
+            dismissible={confirmState?.dismissible ?? true}
             onConfirm={() => confirmState?.onConfirm()}
             onCancel={() => setConfirmState(null)}
-        />
-        <ConfirmDialog
-            open={firstVisitPromptOpen}
-            title={t("dialog.quickSetup.title")}
-            message={t("dialog.quickSetup.message")}
-            confirmLabel={t("dialog.quickSetup.action")}
-            cancelLabel=""
-            showCancel={false}
-            dismissible={false}
-            onConfirm={() => {
-              setFirstVisitPromptOpen(false);
-              setPreferencesOpen(true);
-            }}
-            onCancel={() => {}}
         />
       </div>
   );

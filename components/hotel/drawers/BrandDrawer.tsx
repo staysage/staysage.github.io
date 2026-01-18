@@ -10,7 +10,7 @@ import { MoneyField, NumberField, SelectField, TextField } from "@/components/ho
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, ChevronDown } from "lucide-react";
 import type { Language, Program, Rule, SupportedCurrency, Voucher } from "@/lib/hotel/types";
 import { mkElite, mkTier, mkVoucher, uid } from "@/lib/hotel/defaults";
 import { ruleDisplayName } from "@/lib/hotel/rules";
@@ -35,6 +35,9 @@ export function BrandDrawer({
   language,
   brandLogo,
   formatEliteLabel,
+  subBrandFocusKey,
+  onUpdateBrandDraft,
+  returnToHotelAfterBrand,
   brandRulesOpen,
   onToggleRules,
   brandRulePickerKey,
@@ -59,6 +62,9 @@ export function BrandDrawer({
   language: Language;
   brandLogo?: (name: string) => { src: string; alt: string } | undefined;
   formatEliteLabel: (label: string) => string;
+  subBrandFocusKey: number;
+  onUpdateBrandDraft?: () => void;
+  returnToHotelAfterBrand?: boolean;
   brandRulesOpen: boolean;
   onToggleRules: () => void;
   brandRulePickerKey: number;
@@ -71,12 +77,53 @@ export function BrandDrawer({
   t: Translator;
 }) {
   const isStepper = true;
-  const [step, setStep] = useState(0);
+  const [activeStepId, setActiveStepId] = useState<string | null>(null);
+  const [templateChosen, setTemplateChosen] = useState(false);
+  const [pendingSubBrandFocusId, setPendingSubBrandFocusId] = useState<string | null>(null);
+  const subBrandInputRefs = React.useRef(new Map<string, HTMLInputElement | null>());
+  const lastSubBrandFocusKey = React.useRef<number>(0);
 
   useEffect(() => {
     if (!open) return;
-    setStep(0);
+    setActiveStepId(null);
+    setTemplateChosen(Boolean(brandEditingId));
   }, [open, brandEditingId]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (subBrandFocusKey === lastSubBrandFocusKey.current) return;
+    if (!brandDraftState) return;
+    lastSubBrandFocusKey.current = subBrandFocusKey;
+    setTemplateChosen(true);
+    setActiveStepId("subBrands");
+    const newId = uid();
+    setBrandDraftState((s) =>
+      s
+        ? {
+            ...s,
+            subBrands: [
+              ...s.subBrands,
+              {
+                id: newId,
+                name: t("brand.subBrand.new"),
+                tierId: s.brandTiers[0]?.id ?? "",
+                i18nAuto: false,
+              },
+            ],
+          }
+        : s
+    );
+    setPendingSubBrandFocusId(newId);
+  }, [open, subBrandFocusKey, brandDraftState, setBrandDraftState, t]);
+
+  useEffect(() => {
+    if (!pendingSubBrandFocusId) return;
+    const node = subBrandInputRefs.current.get(pendingSubBrandFocusId);
+    if (!node) return;
+    node.focus();
+    node.select();
+    setPendingSubBrandFocusId(null);
+  }, [pendingSubBrandFocusId]);
 
   const presetOptions = useMemo(
     () => [
@@ -97,60 +144,6 @@ export function BrandDrawer({
   const sections = useMemo(() => {
     if (!brandDraftState) return [] as { id: string; title: string; content: React.ReactNode }[];
     const items: { id: string; title: string; content: React.ReactNode }[] = [];
-
-    if (!brandEditingId) {
-      items.push({
-        id: "template",
-        title: t("brand.template"),
-        content: (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 gap-2">
-              {presetOptions.map((option) => {
-                const logo = brandLogo?.(option.value);
-                const isSelected = brandPresetId === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => {
-                      onPresetChange(option.value);
-                      if (!brandEditingId) {
-                        setStep(1);
-                      }
-                    }}
-                    className={`group rounded-2xl border px-3 py-3 text-left transition ${
-                      isSelected
-                        ? "border-foreground/60 bg-white"
-                        : "border-white/70 bg-white/70 hover:border-foreground/40"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-xl border bg-white/80 flex items-center justify-center">
-                        {logo ? (
-                          <Image src={logo.src} alt={logo.alt} width={26} height={26} />
-                        ) : (
-                          <span className="text-xs text-muted-foreground">
-                            {option.value === "custom" ? "?" : "••"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-medium leading-tight">{option.label}</div>
-                        {option.value === "custom" ? (
-                          <div className="text-xs text-muted-foreground">
-                            {t("brand.preset.customHint")}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        ),
-      });
-    }
 
     items.push({
       id: "base",
@@ -420,6 +413,13 @@ export function BrandDrawer({
                   label={idx === 0 ? t("brand.subBrand.name") : ""}
                   value={subBrand.name}
                   inputClassName={autoInputClass(subBrand.i18nAuto)}
+                  inputRef={(node) => {
+                    if (node) {
+                      subBrandInputRefs.current.set(subBrand.id, node);
+                    } else {
+                      subBrandInputRefs.current.delete(subBrand.id);
+                    }
+                  }}
                   onChange={(v) =>
                     setBrandDraftState((s) =>
                       s
@@ -922,36 +922,38 @@ export function BrandDrawer({
     t,
   ]);
 
-  const activeSection = sections[step] ?? sections[0];
-  const totalSteps = sections.length;
-  const stepHeader = isStepper ? (
-    <div className="flex items-center justify-between text-xs text-muted-foreground">
-      <span>{t("common.step", { current: step + 1, total: totalSteps })}</span>
-      <span>{activeSection?.title}</span>
-    </div>
-  ) : null;
+  const handleStepClose = () => {
+    setActiveStepId(null);
+    if (returnToHotelAfterBrand) {
+      onClose();
+    }
+  };
 
   const footer = isStepper ? (
-    <div className="flex items-center justify-between gap-2">
-      {step > 0 ? (
-        <Button variant="secondary" className="rounded-2xl" onClick={() => setStep(step - 1)}>
-          {t("common.prev")}
+    <div className="flex items-center justify-end gap-2">
+      {brandEditingId ? (
+        <Button
+          className="rounded-2xl"
+          onClick={() => {
+            onUpdateBrandDraft?.();
+            if (!returnToHotelAfterBrand) {
+              onClose();
+            }
+          }}
+        >
+          {t("common.done")}
         </Button>
       ) : (
-        <Button variant="secondary" className="rounded-2xl" onClick={onClose}>
-          {t("common.cancel")}
-        </Button>
-      )}
-      {step < totalSteps - 1 ? (
-        activeSection?.id === "template" ? null : (
-          <Button className="rounded-2xl" onClick={() => setStep(step + 1)}>
-            {t("common.next")}
+        <>
+          <Button variant="secondary" className="rounded-2xl" onClick={onClose}>
+            {t("dialog.brand.footer.cancel")}
           </Button>
-        )
-      ) : (
-        <Button className="rounded-2xl" onClick={onSave}>
-          {t("dialog.brand.footer.save")}
-        </Button>
+          {brandEditingId || templateChosen ? (
+            <Button className="rounded-2xl" onClick={onSave}>
+              {t("dialog.brand.footer.add")}
+            </Button>
+          ) : null}
+        </>
       )}
     </div>
   ) : (
@@ -960,13 +962,79 @@ export function BrandDrawer({
         {t("dialog.brand.footer.cancel")}
       </Button>
       <Button className="rounded-2xl" onClick={onSave}>
-        {t("dialog.brand.footer.save")}
+        {t("dialog.brand.footer.add")}
       </Button>
     </div>
   );
 
   const previewLogo =
     brandDraftState?.logoUrl || (brandDraftState ? brandLogo?.(brandDraftState.name)?.src : "");
+  const totalSteps = sections.length;
+  const recommendedSteps = new Set(["base", "vouchers", "promos"]);
+  const sampleJoiner = language === "zh" || language === "zh-TW" ? "、" : ", ";
+  const sampleSuffix = (items: string[]) =>
+    items.length ? `: ${items.join(sampleJoiner)}` : "";
+  const sectionSummary = (id: string) => {
+    if (!brandDraftState) return "";
+    if (id === "base") {
+      const earnBaseLabel =
+        brandDraftState.settings.earnBase === "PRE_TAX"
+          ? t("brand.earnBase.preTax")
+          : t("brand.earnBase.postTax");
+      return t("brand.step.summary.base", {
+        currency: brandDraftState.currency,
+        value: brandDraftState.settings.pointValue.amount,
+        earnBase: earnBaseLabel,
+      });
+    }
+    if (id === "tiers") {
+      const samples = brandDraftState.brandTiers.slice(0, 2).map((tier) => tier.label);
+      return t("brand.step.summary.tiers", {
+        count: brandDraftState.brandTiers.length,
+        samples: sampleSuffix(samples),
+      });
+    }
+    if (id === "subBrands") {
+      const samples = brandDraftState.subBrands.slice(0, 2).map((subBrand) => subBrand.name);
+      return t("brand.step.summary.subBrands", {
+        count: brandDraftState.subBrands.length,
+        samples: sampleSuffix(samples),
+      });
+    }
+    if (id === "elite") {
+      const samples = brandDraftState.eliteTiers.slice(0, 2).map((tier) => formatEliteLabel(tier.label));
+      return t("brand.step.summary.elite", {
+        count: brandDraftState.eliteTiers.length,
+        samples: sampleSuffix(samples),
+      });
+    }
+    if (id === "vouchers") {
+      const count = brandDraftState.settings.voucherEnabled
+        ? brandDraftState.settings.vouchers.length
+        : 0;
+      const samples = brandDraftState.settings.voucherEnabled
+        ? brandDraftState.settings.vouchers.slice(0, 2).map((voucher) => voucher.name)
+        : [];
+      return t("brand.step.summary.vouchers", {
+        count,
+        samples: sampleSuffix(samples),
+      });
+    }
+    if (id === "promos") {
+      const samples = brandDraftState.settings.rules
+        .slice(0, 2)
+        .map((rule) =>
+          ruleDisplayName(t, rule, (rid) =>
+            brandDraftState.settings.vouchers.find((voucher) => voucher.id === rid)?.name
+          )
+        );
+      return t("brand.step.summary.promos", {
+        count: brandDraftState.settings.rules.length,
+        samples: sampleSuffix(samples),
+      });
+    }
+    return "";
+  };
   const sharedHints = brandDraftState ? (
     <div className="rounded-2xl border border-dashed border-slate-200/80 bg-slate-50/70 p-3 space-y-3">
       <div className="text-xs font-medium text-slate-500">{t("common.tip")}</div>
@@ -1036,33 +1104,147 @@ export function BrandDrawer({
     </div>
   ) : null;
 
+  const activeSection = sections.find((section) => section.id === activeStepId) ?? null;
+
   return (
-    <Drawer
-      open={open}
-      title={brandEditingId ? t("dialog.brand.edit.title") : t("dialog.brand.add.title")}
-      onClose={onClose}
-      footer={footer}
-    >
-      {brandDraftState ? (
-        <div className="space-y-4">
-          {stepHeader}
-          {activeSection?.id === "template" ? null : sharedHints}
-          {isStepper ? (
-            <div className="space-y-4">{activeSection?.content}</div>
-          ) : (
-            <div className="space-y-6">
-              {sections.map((section, idx) => (
-                <div key={section.id} className={idx === 0 ? "" : "pt-4 border-t"}>
-                  <div className="text-sm font-medium mb-2">{section.title}</div>
-                  {section.content}
+    <>
+      <Drawer
+        open={open}
+        title={brandEditingId ? t("dialog.brand.edit.title") : t("dialog.brand.add.title")}
+        onClose={onClose}
+        footer={footer}
+      >
+        {brandDraftState ? (
+          <div className="space-y-4">
+            {!brandEditingId && !templateChosen ? (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">{t("brand.template")}</div>
+                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 gap-2">
+                  {presetOptions.map((option) => {
+                    const logo = brandLogo?.(option.value);
+                    const isSelected = brandPresetId === option.value;
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => {
+                          onPresetChange(option.value);
+                          setTemplateChosen(true);
+                        }}
+                        className={`group rounded-2xl border px-3 py-3 text-left transition ${
+                          isSelected
+                            ? "border-foreground/60 bg-white"
+                            : "border-white/70 bg-white/70 hover:border-foreground/40"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-xl border bg-white/80 flex items-center justify-center">
+                            {logo ? (
+                              <Image src={logo.src} alt={logo.alt} width={26} height={26} />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                {option.value === "custom" ? "?" : "••"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-medium leading-tight">{option.label}</div>
+                            {option.value === "custom" ? (
+                              <div className="text-xs text-muted-foreground">
+                                {t("brand.preset.customHint")}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
-      )}
-    </Drawer>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {sections.map((section, idx) => (
+                  <div
+                    key={section.id}
+                    className="rounded-2xl border border-white/70 bg-white/70 px-3 py-3"
+                  >
+                    <button
+                      type="button"
+                      className="w-full flex items-start justify-between gap-3 text-left"
+                      onClick={() => setActiveStepId(section.id)}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {t("common.step", { current: idx + 1, total: totalSteps })}
+                          </span>
+                          {recommendedSteps.has(section.id) ? (
+                            <span className="text-[11px] rounded-full border border-amber-200/80 bg-amber-50/60 px-2 py-0.5 text-amber-900/80">
+                              {t("brand.step.recommended")}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="font-medium">{section.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {sectionSummary(section.id)}
+                        </div>
+                      </div>
+                      <ChevronDown className="mt-1 h-4 w-4 shrink-0 -rotate-90" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+        )}
+      </Drawer>
+      <Drawer
+        open={open && Boolean(activeStepId)}
+        title={activeSection?.title ?? ""}
+        onClose={handleStepClose}
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            {brandEditingId ? (
+              <Button
+                className="rounded-2xl"
+                onClick={() => {
+                  onUpdateBrandDraft?.();
+                  setActiveStepId(null);
+                  if (returnToHotelAfterBrand) {
+                    onClose();
+                  }
+                }}
+              >
+                {t("dialog.brand.step.update")}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="secondary"
+                  className="rounded-2xl"
+                  onClick={handleStepClose}
+                >
+                  {t("common.cancel")}
+                </Button>
+                <Button className="rounded-2xl" onClick={handleStepClose}>
+                  {t("common.done")}
+                </Button>
+              </>
+            )}
+          </div>
+        }
+      >
+        {brandDraftState ? (
+          <div className="space-y-4">
+            {sharedHints}
+            {activeSection?.content}
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">{t("common.loading")}</div>
+        )}
+      </Drawer>
+    </>
   );
 }

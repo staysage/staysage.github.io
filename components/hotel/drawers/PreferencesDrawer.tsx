@@ -13,6 +13,8 @@ export function PreferencesDrawer({
   global,
   preferencesComplete,
   onClose,
+  firstVisitMode,
+  onFirstBrand,
   onLanguageChange,
   onCurrencyChange,
   onTaxModeChange,
@@ -33,6 +35,8 @@ export function PreferencesDrawer({
   global: GlobalSettings;
   preferencesComplete: boolean;
   onClose: () => void;
+  firstVisitMode: boolean;
+  onFirstBrand: () => void;
   onLanguageChange: (language: Language) => void;
   onCurrencyChange: (currency: SupportedCurrency) => void;
   onTaxModeChange: (mode: GlobalSettings["taxInputMode"]) => void;
@@ -55,7 +59,7 @@ export function PreferencesDrawer({
       open={open}
       title={t("drawer.preferences.title")}
       onClose={onClose}
-      disableClose={!preferencesComplete}
+      disableClose={!preferencesComplete || firstVisitMode}
       footer={
         <div className="flex items-center justify-end gap-2">
           {!preferencesComplete ? (
@@ -63,14 +67,24 @@ export function PreferencesDrawer({
               {t("drawer.preferences.requiredNotice")}
             </div>
           ) : null}
-          <Button
-            variant="secondary"
-            className="rounded-2xl"
-            onClick={onClose}
-            disabled={!preferencesComplete}
-          >
-            {t("common.close")}
-          </Button>
+          {firstVisitMode ? (
+            <Button
+              className="rounded-2xl"
+              onClick={onFirstBrand}
+              disabled={!preferencesComplete}
+            >
+              {t("drawer.preferences.addBrand")}
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              className="rounded-2xl"
+              onClick={onClose}
+              disabled={!preferencesComplete}
+            >
+              {t("common.close")}
+            </Button>
+          )}
         </div>
       }
     >

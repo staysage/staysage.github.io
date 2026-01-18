@@ -37,14 +37,13 @@ export function useHotelState() {
   const [page, setPage] = useState<"travel" | "brands">("travel");
 
   const [global, setGlobal] = useState<GlobalSettings>(defaultGlobal);
-  const [programs, setPrograms] = useState<Program[]>(
-    defaultPrograms(false, "zh")
-  );
+  const [programs, setPrograms] = useState<Program[]>([]);
   const [hotels, setHotels] = useState<HotelOption[]>([]); // start from 0
   const [language, setLanguage] = useState<Language>("zh");
   const [hydrated, setHydrated] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
-  const [firstVisitPromptOpen, setFirstVisitPromptOpen] = useState(false);
+  const [firstVisitFlow, setFirstVisitFlow] = useState(false);
+  const [firstBrandFlow, setFirstBrandFlow] = useState(false);
 
   const [brandRulesOpen, setBrandRulesOpen] = useState(true);
   const [hotelRulesOpen, setHotelRulesOpen] = useState(true);
@@ -64,6 +63,8 @@ export function useHotelState() {
     confirmLabel: string;
     cancelLabel: string;
     destructive?: boolean;
+    showCancel?: boolean;
+    dismissible?: boolean;
     onConfirm: () => void;
   } | null>(null);
   const [brandPresetId, setBrandPresetId] = useState("custom");
@@ -314,6 +315,19 @@ export function useHotelState() {
   const applyAutoTranslations = (items: Program[], nextLanguage: Language) =>
     items.map((program) => applyAutoToProgram(program, nextLanguage));
 
+  const buildDefaultHotelName = (
+    programName: string | undefined,
+    tt: (key: string, vars?: Record<string, unknown>) => string,
+    nextLanguage: Language
+  ) => {
+    const base = tt("hotel.defaultName");
+    if (!programName) return base;
+    if (nextLanguage === "zh" || nextLanguage === "zh-TW") {
+      return `${programName}${base}`;
+    }
+    return `${programName} ${base}`.trim();
+  };
+
   const applyAutoToHotels = (
     items: HotelOption[],
     programs: Program[],
@@ -330,7 +344,10 @@ export function useHotelState() {
         );
         if (subBrand?.name) return { ...hotel, name: subBrand.name };
       }
-      return { ...hotel, name: tt("hotel.defaultName") };
+      return {
+        ...hotel,
+        name: buildDefaultHotelName(program?.name, tt, nextLanguage),
+      };
     });
   };
 
@@ -705,8 +722,11 @@ export function useHotelState() {
           currency: program.currency ?? "USD",
           brandTiers: program.brandTiers.map((tier) => {
             const i18nKey = tier.i18nKey ?? getTierKeyFromLabel(tier.label);
+            const isNumericTier = /^\d+(\.\d+)?x$/i.test(tier.label.trim());
             const i18nAuto =
-              tier.i18nAuto !== undefined ? tier.i18nAuto : Boolean(i18nKey);
+              tier.i18nAuto !== undefined
+                ? tier.i18nAuto
+                : Boolean(i18nKey) && !isNumericTier;
             return { ...tier, i18nKey, i18nAuto };
           }),
           eliteTiers: program.eliteTiers.map((elite) => {
@@ -791,9 +811,17 @@ export function useHotelState() {
         const subBrandTierId = hasSubBrand
           ? program?.subBrands.find((subBrand) => subBrand.id === subBrandId)?.tierId
           : undefined;
+        const autoName =
+          (hotel as any).nameI18nAuto ??
+          Boolean(
+            (hasSubBrand &&
+              program?.subBrands.find((subBrand) => subBrand.id === subBrandId)?.name ===
+                hotel.name) ||
+              hotel.name === t("hotel.defaultName")
+          );
         return {
           ...hotel,
-          nameI18nAuto: (hotel as any).nameI18nAuto ?? false,
+          nameI18nAuto: autoName,
           ratePreTax:
             (hotel as any).ratePreTax?.amount !== undefined
               ? (hotel as any).ratePreTax
@@ -819,9 +847,7 @@ export function useHotelState() {
       });
       setPrograms(
         applyAutoTranslations(
-          normalizedProgramsWithRules.length
-            ? normalizedProgramsWithRules
-            : defaultPrograms(false, nextLanguage),
+          normalizedProgramsWithRules.length ? normalizedProgramsWithRules : [],
           nextLanguage
         )
       );
@@ -834,7 +860,6 @@ export function useHotelState() {
       const nextLanguage = preferredLanguage ?? storedLanguage;
       if (nextLanguage && nextLanguage !== language) {
         handleLanguageChange(nextLanguage);
-        setPrograms(defaultPrograms(false, nextLanguage));
       }
     }
     const hasStoredPreferences = Boolean(
@@ -844,7 +869,8 @@ export function useHotelState() {
       persistPreferencesSet();
     }
     if (!preferencesSet && !hasStoredPreferences) {
-      setFirstVisitPromptOpen(true);
+      setPreferencesOpen(true);
+      setFirstVisitFlow(true);
     }
     setHydrated(true);
   }, []);
@@ -881,9 +907,12 @@ export function useHotelState() {
   // Drawer state
   const [brandDrawerOpen, setBrandDrawerOpen] = useState(false);
   const [brandEditingId, setBrandEditingId] = useState<string | null>(null);
+  const [brandSubBrandFocusKey, setBrandSubBrandFocusKey] = useState(0);
+  const [returnToHotelAfterBrand, setReturnToHotelAfterBrand] = useState(false);
 
   const [hotelDrawerOpen, setHotelDrawerOpen] = useState(false);
   const [hotelEditingId, setHotelEditingId] = useState<string | null>(null);
+  const [hotelResumeStep, setHotelResumeStep] = useState<1 | 2 | 3 | null>(null);
 
   // Derived
   const currency = preferredCurrency;
@@ -976,27 +1005,44 @@ export function useHotelState() {
     setBrandDrawerOpen(true);
   };
 
-  const saveBrandDraft = () => {
-    if (!brandDraftState) return;
+  const openBrandDrawerSubBrand = (id: string) => {
+    if (hotelDraftState) {
+      setHotelDraftOverride(hotelDraftState);
+    }
+    setReturnToHotelAfterBrand(true);
+    setHotelResumeStep(2);
+    setBrandEditingId(id);
+    setBrandDrawerOpen(true);
+    setBrandSubBrandFocusKey((v) => v + 1);
+    setHotelDrawerOpen(false);
+  };
 
-    // ensure eliteTierId exists
-    let eliteTierId = brandDraftState.settings.eliteTierId;
-    if (!brandDraftState.eliteTiers.find((e) => e.id === eliteTierId)) {
-      eliteTierId = brandDraftState.eliteTiers[0]?.id ?? uid();
+  const closeBrandDrawer = () => {
+    setBrandDrawerOpen(false);
+    if (returnToHotelAfterBrand) {
+      setReturnToHotelAfterBrand(false);
+      setHotelDrawerOpen(true);
+    }
+  };
+
+  const normalizeBrandDraft = (draft: Program): Program => {
+    let eliteTierId = draft.settings.eliteTierId;
+    if (!draft.eliteTiers.find((e) => e.id === eliteTierId)) {
+      eliteTierId = draft.eliteTiers[0]?.id ?? uid();
     }
 
-    const programCurrency = brandDraftState.currency ?? "USD";
-    const normalized: Program = {
-      ...brandDraftState,
+    const programCurrency = draft.currency ?? "USD";
+    return {
+      ...draft,
       currency: programCurrency,
       settings: {
-        ...brandDraftState.settings,
+        ...draft.settings,
         eliteTierId,
         pointValue: {
-          ...brandDraftState.settings.pointValue,
-          currency: brandDraftState.settings.pointValue.currency ?? programCurrency,
+          ...draft.settings.pointValue,
+          currency: draft.settings.pointValue.currency ?? programCurrency,
         },
-        vouchers: brandDraftState.settings.vouchers.map((voucher) => ({
+        vouchers: draft.settings.vouchers.map((voucher) => ({
           ...voucher,
           valueCash: {
             ...voucher.valueCash,
@@ -1005,15 +1051,54 @@ export function useHotelState() {
         })),
       },
     };
+  };
 
+  const updateBrandDraft = () => {
+    if (!brandDraftState) return;
+    const normalized = normalizeBrandDraft(brandDraftState);
     setPrograms((prev) => {
       const exists = prev.some((p) => p.id === normalized.id);
       return exists
-          ? prev.map((p) => (p.id === normalized.id ? normalized : p))
-          : [...prev, normalized];
+        ? prev.map((p) => (p.id === normalized.id ? normalized : p))
+        : [...prev, normalized];
+    });
+    if (returnToHotelAfterBrand) {
+      setReturnToHotelAfterBrand(false);
+      setBrandDrawerOpen(false);
+      setHotelDrawerOpen(true);
+    }
+  };
+
+  const saveBrandDraft = () => {
+    if (!brandDraftState) return;
+    const normalized = normalizeBrandDraft(brandDraftState);
+
+    setPrograms((prev) => {
+      const exists = prev.some((p) => p.id === normalized.id);
+      if (!exists && prev.length === 0 && firstBrandFlow) {
+        setConfirmState({
+          title: t("dialog.firstBrand.title"),
+          message: t("dialog.firstBrand.message"),
+          confirmLabel: t("dialog.firstBrand.action"),
+          cancelLabel: "",
+          showCancel: false,
+          dismissible: false,
+          onConfirm: () => {
+            setConfirmState(null);
+          },
+        });
+        setFirstBrandFlow(false);
+      }
+      return exists
+        ? prev.map((p) => (p.id === normalized.id ? normalized : p))
+        : [...prev, normalized];
     });
 
     setBrandDrawerOpen(false);
+    if (returnToHotelAfterBrand) {
+      setReturnToHotelAfterBrand(false);
+      setHotelDrawerOpen(true);
+    }
   };
 
   const deleteBrand = (id: string) => {
@@ -1059,19 +1144,30 @@ export function useHotelState() {
     if (!hotelDrawerOpen) return null;
     if (!hotelEditingId) {
       const h = defaultHotel(programs, preferredCurrency);
-      return { ...h, name: t("hotel.defaultName"), nameI18nAuto: true };
+      return {
+        ...h,
+        name: buildDefaultHotelName(programs[0]?.name, t, language),
+        nameI18nAuto: true,
+      };
     }
     const existing = hotels.find((x) => x.id === hotelEditingId);
     return existing ? JSON.parse(JSON.stringify(existing)) : null;
   }, [hotelDrawerOpen, hotelEditingId, hotels, programs, language]);
 
-  const [hotelDraftState, setHotelDraftState] = useState<HotelOption | null>(
-      null
-  );
+  const [hotelDraftState, setHotelDraftState] = useState<HotelOption | null>(null);
+  const [hotelDraftOverride, setHotelDraftOverride] = useState<HotelOption | null>(null);
 
   React.useEffect(() => {
-    if (hotelDrawerOpen) setHotelDraftState(hotelDraft);
-    else setHotelDraftState(null);
+    if (hotelDrawerOpen) {
+      if (hotelDraftOverride) {
+        setHotelDraftState(hotelDraftOverride);
+        setHotelDraftOverride(null);
+      } else {
+        setHotelDraftState(hotelDraft);
+      }
+    } else {
+      setHotelDraftState(null);
+    }
     if (!hotelDrawerOpen) {
       setRuleDrawerOpen(false);
       setRuleDraftState(null);
@@ -1333,8 +1429,17 @@ export function useHotelState() {
   };
 
   const handlePreferencesClose = () => {
+    if (!preferencesComplete || firstVisitFlow) return;
+    setPreferencesOpen(false);
+  };
+
+  const startFirstBrandFlow = () => {
     if (!preferencesComplete) return;
     setPreferencesOpen(false);
+    setFirstVisitFlow(false);
+    setFirstBrandFlow(true);
+    setPage("brands");
+    openBrandDrawerNew();
   };
 
   const ruleDraftProgram =
@@ -1384,8 +1489,8 @@ export function useHotelState() {
     languageOptions,
     preferencesOpen,
     setPreferencesOpen,
-    firstVisitPromptOpen,
-    setFirstVisitPromptOpen,
+    firstVisitFlow,
+    startFirstBrandFlow,
     brandRulesOpen,
     setBrandRulesOpen,
     hotelRulesOpen,
@@ -1437,6 +1542,8 @@ export function useHotelState() {
     setBrandDrawerOpen,
     brandEditingId,
     setBrandEditingId,
+    brandSubBrandFocusKey,
+    returnToHotelAfterBrand,
     brandDraftState,
     setBrandDraftState,
     hotelDrawerOpen,
@@ -1447,6 +1554,11 @@ export function useHotelState() {
     setHotelDraftState,
     openBrandDrawerNew,
     openBrandDrawerEdit,
+    openBrandDrawerSubBrand,
+    closeBrandDrawer,
+    updateBrandDraft,
+    hotelResumeStep,
+    setHotelResumeStep,
     openHotelDrawerNew,
     openHotelDrawerEdit,
     openHotelDetail,

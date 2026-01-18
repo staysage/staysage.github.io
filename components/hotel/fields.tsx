@@ -87,6 +87,7 @@ export function TextField({
   placeholder,
   onFocus,
   inputClassName,
+  inputRef,
 }: {
   label: string;
   value: string;
@@ -94,6 +95,7 @@ export function TextField({
   placeholder?: string;
   onFocus?: () => void;
   inputClassName?: string;
+  inputRef?: React.Ref<HTMLInputElement>;
 }) {
   return (
     <div className="space-y-1">
@@ -104,6 +106,7 @@ export function TextField({
         className={inputClassName}
         onChange={(e) => onChange(e.target.value)}
         onFocus={onFocus}
+        ref={inputRef}
       />
     </div>
   );
