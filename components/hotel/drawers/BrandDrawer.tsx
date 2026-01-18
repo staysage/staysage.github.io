@@ -15,8 +15,12 @@ import type { Language, Program, Rule, SupportedCurrency, Voucher } from "@/lib/
 import { mkElite, mkTier, mkVoucher, uid } from "@/lib/hotel/defaults";
 import { ruleDisplayName } from "@/lib/hotel/rules";
 import { ruleSummary } from "@/lib/hotel/format";
+import type { LocaleKey } from "@/lib/i18n";
 
-type Translator = (key: string, vars?: Record<string, unknown>) => string;
+type Translator = (
+  key: LocaleKey,
+  vars?: Record<string, string | number | null | undefined>
+) => string;
 
 export function BrandDrawer({
   open,

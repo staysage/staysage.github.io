@@ -4,8 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InfoTip } from "@/components/hotel/info-tip";
 import { NumberField, SelectField } from "@/components/hotel/fields";
 import type { Country, GlobalSettings } from "@/lib/hotel/types";
+import type { LocaleKey } from "@/lib/i18n";
 
-type Translator = (key: string, vars?: Record<string, unknown>) => string;
+type Translator = (
+  key: LocaleKey,
+  vars?: Record<string, string | number | null | undefined>
+) => string;
 
 export function TravelSection({
   t,

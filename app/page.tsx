@@ -601,7 +601,7 @@ export default function HotelChooserAllPrograms() {
                 : undefined
             }
             onNameFocus={() => setRuleNameMode("manual")}
-            voucherEnabled={voucherEnabled}
+            voucherEnabled={voucherEnabled}k
             vouchers={ruleDraftProgram?.settings.vouchers ?? []}
             onRequestVoucher={handleVoucherRequest}
             onUpdate={(patch) =>

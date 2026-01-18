@@ -9,9 +9,13 @@ import { Pencil, Trash2 } from "lucide-react";
 import type { HotelOption, Language, Program, SupportedCurrency } from "@/lib/hotel/types";
 import { ruleDisplayName } from "@/lib/hotel/rules";
 import { ruleSummary } from "@/lib/hotel/format";
+import type { LocaleKey } from "@/lib/i18n";
 import React from "react";
 
-type Translator = (key: string, vars?: Record<string, unknown>) => string;
+type Translator = (
+  key: LocaleKey,
+  vars?: Record<string, string | number | null | undefined>
+) => string;
 
 type Step = 1 | 2 | 3;
 

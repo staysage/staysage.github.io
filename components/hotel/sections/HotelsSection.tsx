@@ -13,8 +13,12 @@ import type {
   Program,
   SupportedCurrency,
 } from "@/lib/hotel/types";
+import type { LocaleKey } from "@/lib/i18n";
 
-type Translator = (key: string, vars?: Record<string, unknown>) => string;
+type Translator = (
+  key: LocaleKey,
+  vars?: Record<string, string | number | null | undefined>
+) => string;
 
 export function HotelsSection({
   t,

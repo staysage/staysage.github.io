@@ -7,8 +7,12 @@ import { Separator } from "@/components/ui/separator";
 import { Copy, Pencil, Plus, Trash2 } from "lucide-react";
 import type { Program } from "@/lib/hotel/types";
 import { ruleDisplayName } from "@/lib/hotel/rules";
+import type { LocaleKey } from "@/lib/i18n";
 
-type Translator = (key: string, vars?: Record<string, unknown>) => string;
+type Translator = (
+  key: LocaleKey,
+  vars?: Record<string, string | number | null | undefined>
+) => string;
 
 export function BrandsSection({
   t,
