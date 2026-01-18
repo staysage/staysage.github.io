@@ -64,7 +64,7 @@ export function BrandDrawer({
   currencyLabel: (code: SupportedCurrency) => string;
   currency: SupportedCurrency;
   language: Language;
-  brandLogo?: (name: string) => { src: string; alt: string } | undefined;
+  brandLogo?: (name: string) => { src: string; alt: string } | null;
   formatEliteLabel: (label: string) => string;
   subBrandFocusKey: number;
   onUpdateBrandDraft?: () => void;
