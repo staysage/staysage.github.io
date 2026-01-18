@@ -953,7 +953,9 @@ export function useHotelState() {
     () => (hotelDetailId ? hotels.find((h) => h.id === hotelDetailId) ?? null : null),
     [hotelDetailId, hotels]
   );
-  const selectedProgram = selectedHotel ? programById.get(selectedHotel.programId) : null;
+  const selectedProgram = selectedHotel
+    ? programById.get(selectedHotel.programId) ?? null
+    : null;
   const selectedCalc =
     selectedHotel && selectedProgram
       ? computeHotel(global, selectedProgram, selectedHotel, fxRates ?? undefined)
